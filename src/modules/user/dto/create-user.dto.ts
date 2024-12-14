@@ -17,13 +17,5 @@ export class CreateUserDto {
 
   @ApiProperty()
   @IsOptional()
-  role: string;
-
-  @ApiProperty()
-  @IsOptional()
-  departmentId: string;
-
-  @ApiProperty()
-  @IsOptional()
-  positionId: string;
+  authorityGroup: number;
 }

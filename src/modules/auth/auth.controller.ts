@@ -10,20 +10,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { LoginUserDto } from './dto/login-user.dto';
-import { CreateUserDto } from 'src/modules/user/dto/create-user.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { SkipThrottle } from '@nestjs/throttler';
 import { ConfirmEmailDto } from './dto/confirm-email.dto';
 import { EmailRequestDto } from './dto/email-request.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
-@ApiTags('auth')
+@ApiTags('authentications')
 @ApiHeader({
   name: 'timestamp',
   description: "request's timestamp to prevent attack",
 })
-@SkipThrottle()
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -32,12 +29,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginUserDto: LoginUserDto) {
     return await this.authService.login(loginUserDto);
-  }
-
-  @Post('register')
-  @HttpCode(HttpStatus.OK)
-  async register(@Body() createUserDto: CreateUserDto) {
-    return await this.authService.register(createUserDto);
   }
 
   @Post('refresh')
@@ -54,15 +45,14 @@ export class AuthController {
     return await this.authService.logout(req.user);
   }
 
-  @Post('confirm')
+  @Post('confirm-email')
   async confirmEmail(@Body() body: ConfirmEmailDto) {
     return await this.authService.confirmEmail(body.token);
   }
 
-  @Post('resend-confirm')
-  @SkipThrottle()
-  async resendConfirmEmail(@Body() body: EmailRequestDto) {
-    return await this.authService.resendConfirmEmail(body.email);
+  @Post('send-confirm-email')
+  async sendConfirmEmail(@Body() body: EmailRequestDto) {
+    return await this.authService.sendConfirmEmail(body.email);
   }
 
   @Post('forgot-password')

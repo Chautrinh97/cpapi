@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
@@ -6,13 +6,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { UserModule } from 'src/modules/user/user.module';
 import * as dotenv from 'dotenv';
-import { MongooseModule } from '@nestjs/mongoose';
-import {
-  ForgotPassword,
-  ForgotPasswordSchema,
-} from './schemas/forgot-password.schema';
-import { AuthRepository } from './auth.repository';
-import { VendorModule } from 'src/modules/vendor/vendor.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ForgotPassword } from './schemas/forgot-password.schema';
+import { BullModule } from '@nestjs/bullmq';
+import { EmailConsumer } from './comsumers/email.consumer';
 dotenv.config();
 @Module({
   imports: [
@@ -21,13 +18,13 @@ dotenv.config();
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: process.env.JWT_EXPIRATION },
     }),
-    MongooseModule.forFeature([
-      { name: ForgotPassword.name, schema: ForgotPasswordSchema },
-    ]),
-    UserModule,
-    VendorModule,
+    TypeOrmModule.forFeature([ForgotPassword]),
+    forwardRef(() => UserModule),
+    BullModule.registerQueue({
+      name: 'send-email',
+    }),
   ],
-  providers: [AuthService, JwtStrategy, AuthRepository],
+  providers: [AuthService, JwtStrategy, EmailConsumer],
   exports: [AuthService],
   controllers: [AuthController],
 })

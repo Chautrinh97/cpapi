@@ -1,19 +1,18 @@
 import {
   Entity,
   Column,
-  PrimaryGeneratedColumn,
-  Unique,
-  CreateDateColumn,
-  UpdateDateColumn,
+  OneToMany,
+  ManyToOne,
+  JoinColumn,
+  Relation,
 } from 'typeorm';
 import { IsEmail, Length } from 'class-validator';
+import { Document } from 'src/modules/document/schemas/document.schema';
+import { BaseEntity } from 'src/base/base.schema';
+import { AuthorityGroup } from 'src/modules/permission/schemas/authority-group.schema';
 
 @Entity('users')
-@Unique(['email'])
-export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
-
+export class User extends BaseEntity {
   @Column({ length: 255 })
   fullName: string;
 
@@ -27,7 +26,7 @@ export class User {
 
   @Column({
     type: 'enum',
-    enum: ['superadmin', 'admin', 'officer'],
+    enum: ['superadmin', 'officer'],
     default: 'officer',
   })
   role: string;
@@ -47,9 +46,13 @@ export class User {
   @Column({ default: false })
   isDisabled: boolean;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @OneToMany(() => Document, (document) => document.createdBy)
+  documents: Document[];
 
-  @UpdateDateColumn()
-  updatedAt: Date;
+  @ManyToOne(() => AuthorityGroup, (authorityGroup) => authorityGroup.users, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'authority_group_id' })
+  authorityGroup: Relation<AuthorityGroup>;
 }

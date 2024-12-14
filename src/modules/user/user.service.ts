@@ -1,144 +1,174 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
-import { User } from './schemas/user.schema';
 import { UserRepository } from './user.repository';
-import { hash } from 'src/utils/bcrypt';
-import { VendorService } from 'src/modules/vendor/vendor.service';
+import { compare, hash } from 'src/utils/bcrypt';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PositionService } from '../position/position.service';
-import { PermissionLevelEnum } from '../position/enum/permission-level.enum';
-import { DepartmentService } from '../department/department.service';
-
+import { CreateUserDto } from './dto/create-user.dto';
+import { PermissionService } from '../permission/permission.service';
+// import { AuthService } from '../auth/auth.service';
+// import { ModuleRef } from '@nestjs/core';
+import { UpdateInfoDto } from './dto/update-info.dto';
 @Injectable()
-export class UserService {
+export class UserService implements OnModuleInit {
+  // private authService: AuthService;
   constructor(
-    @Inject(forwardRef(() => VendorService))
-    private readonly vendorService: VendorService,
-    @Inject(forwardRef(() => PositionService))
-    private readonly positionService: PositionService,
-    @Inject(forwardRef(() => DepartmentService))
-    private readonly departmentService: DepartmentService,
+    @Inject(forwardRef(() => PermissionService))
+    private readonly permissionService: PermissionService,
     private readonly userRepository: UserRepository,
+    // private moduleRef: ModuleRef,
   ) {}
+  onModuleInit() {
+    // this.authService = this.moduleRef.get(AuthService, { strict: false });
+  }
 
-  async create(userToCreate, userVendor: User) {
-    const user = await this.findByEmail(userToCreate.email);
-    if (user) throw new BadRequestException('User aldready exists');
+  async create(dto: CreateUserDto) {
+    const existeduser = await this.userRepository.findOneBy({
+      email: dto.email,
+    });
+    if (existeduser) throw new ConflictException('Email aldready exists');
 
-    if (userVendor) {
-      await this.permissionLogicHandle(userToCreate);
-      return await this.userRepository.create({
-        ...userToCreate,
-        vendorId: userVendor.vendorId,
-        role: 'employee',
-        password: await hash(userToCreate.password),
-      });
+    const user = await this.userRepository.create();
+
+    if (dto.authorityGroup) {
+      const authorityGroup = await this.permissionService.getAuthorityGroupById(
+        dto.authorityGroup,
+      );
+      if (!authorityGroup)
+        throw new NotFoundException('Authority group is not found');
+      user.authorityGroup = authorityGroup;
     }
-    return await this.userRepository.create({
-      ...userToCreate,
-      password: await hash(userToCreate.password),
+
+    Object.assign(user, {
+      ...dto,
+      password: await hash(dto.password),
+    });
+
+    // await this.authService.sendConfirmEmail(user.email);
+
+    return await this.userRepository.save(user);
+  }
+
+  async getAll(query: PaginationQueryDto) {
+    return await this.userRepository.getAll(query);
+  }
+
+  async getById(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id: id },
+      relations: ['authorityGroup'],
+    });
+    if (!user) throw new NotFoundException('User not founds.');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...sanitizedUser } = user;
+    return sanitizedUser;
+  }
+
+  async updateUser(id: number, dto: UpdateUserDto) {
+    const userForUpdate = await this.userRepository.findOne({ where: { id } });
+    if (!userForUpdate) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (dto.password) {
+      dto.password = await hash(dto.password);
+    }
+
+    if (
+      userForUpdate.isVerified &&
+      dto.email &&
+      dto.email !== userForUpdate.email
+    ) {
+      throw new ForbiddenException("User's email already verified.");
+    }
+
+    if (
+      !userForUpdate.isVerified &&
+      dto.email &&
+      dto.email !== userForUpdate.email
+    ) {
+      const existingUserWithEmail = await this.userRepository.findOne({
+        where: { email: dto.email },
+      });
+      if (existingUserWithEmail) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
+    if (dto.authorityGroup) {
+      const authorityGroup = await this.permissionService.getAuthorityGroupById(
+        dto.authorityGroup,
+      );
+      if (!authorityGroup) {
+        throw new NotFoundException('Authority group not found');
+      }
+      userForUpdate.authorityGroup = authorityGroup;
+    }
+
+    Object.assign(userForUpdate, dto);
+
+    await this.userRepository.save(userForUpdate);
+  }
+
+  async deleteById(userId: number) {
+    const user = await this.userRepository.findOneBy({ id: userId });
+    if (!user) throw new NotFoundException('Not found user');
+    return await this.userRepository.delete({ id: userId });
+  }
+
+  async findByEmail(email: string) {
+    return await this.userRepository.findOne({
+      where: { email: email },
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
     });
   }
 
-  async getAll(user, query: PaginationQueryDto) {
-    return await this.userRepository.getAll(user.vendorId, query);
+  async updateOne(filter, updateUserDto) {
+    await this.userRepository.update(filter, updateUserDto);
   }
 
-  async getUserByCondition(filter) {
-    return await this.userRepository.findMany(filter);
-  }
-
-  async getById(id) {
-    const user = await this.userRepository.findOne({ _id: id });
-    if (!user) throw new NotFoundException('User not founds.');
+  async getUserWithAuthorityGroup(id: number) {
+    const user = await this.userRepository.findOne({
+      where: { id: id },
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
+    });
     return user;
   }
 
-  async findByEmail(email: string): Promise<User> {
-    return await this.userRepository.findOne({ email: email });
+  async getInfo(user) {
+    const userInfo = await this.userRepository.findOne({
+      where: { id: user.id },
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
+    });
+    if (!userInfo) throw new NotFoundException('User not found.');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...sanitizedUser } = user;
+    return {
+      user: sanitizedUser,
+    };
   }
 
-  async updateOne(filter, updateUserDto) {
-    await this.userRepository.updateOne(filter, updateUserDto);
-  }
+  async updateInfo(user, dto: UpdateInfoDto) {
+    const userForUpdate = await this.userRepository.findOne({
+      where: { id: user.id },
+    });
+    if (!userForUpdate) return new NotFoundException('User not found.');
 
-  async updateMany(filter, data) {
-    await this.userRepository.updateMany(filter, data);
-  }
-
-  async updateVendorUser(userVendor, userId, updateUserDto: UpdateUserDto) {
-    const userForUpdate = await this.getById(userId);
-    if (!userForUpdate) throw new NotFoundException('User not found.');
-    if (userForUpdate.vendorId !== userVendor.vendorId)
-      throw new ForbiddenException("Not your vendor's user");
-    if (userForUpdate.isVerified)
-      throw new ConflictException("User already verified, can't update user");
-    if (updateUserDto.password) {
-      updateUserDto.password = await hash(updateUserDto.password);
-    }
-    await this.permissionLogicHandle(updateUserDto);
-    if (updateUserDto.email) {
-      const existedUser = await this.userRepository.findOne({
-        email: updateUserDto.email,
-      });
-      if (existedUser) throw new BadRequestException('Email already exist.');
-    }
-    return await this.userRepository.findOneAndUpdate(
-      { _id: userId },
-      updateUserDto,
+    const isMatchedPassword = await compare(
+      dto.oldPassword,
+      userForUpdate.password,
     );
-  }
+    if (!isMatchedPassword)
+      throw new ConflictException('Old password not correct.');
 
-  async updateInfo(userId, updateUserDto: UpdateUserDto) {
-    const userForUpdate = await this.getById(userId);
-    if (!userForUpdate) throw new NotFoundException('User not found.');
-    if (updateUserDto.password) {
-      updateUserDto.password = await hash(updateUserDto.password);
-    }
-    return await this.userRepository.findOneAndUpdate(
-      { _id: userId },
-      updateUserDto,
-    );
-  }
-
-  async deleteById(owner, userId: string) {
-    const user = await this.userRepository.findOne({ _id: userId });
-    if (!user) throw new NotFoundException('Not found user');
-    if (user.id === owner.id)
-      throw new ConflictException("You can't delete yourself");
-    if (owner.vendorId !== user.vendorId)
-      throw new ForbiddenException("Not your vendor's user");
-    return await this.userRepository.deleteOne({ _id: userId });
-  }
-
-  //------------------------------PRIVATE-METHOD--------------------------------
-  //------------------------------PRIVATE-METHOD--------------------------------
-  //------------------------------PRIVATE-METHOD--------------------------------
-
-  async permissionLogicHandle(userForVerify) {
-    const newDepartmentId = userForVerify.departmentId;
-    const newPositionId = userForVerify.positionId;
-    if (!newDepartmentId) {
-      if (newPositionId) {
-        const newPosition = await this.positionService.getById(newPositionId);
-        if (!newPosition) throw new NotFoundException('Position not found');
-        if (newPosition.permissionLevel !== PermissionLevelEnum.Full) {
-          throw new ConflictException(
-            'User not in a department could not have that position',
-          );
-        }
-      }
-      return;
-    }
-    const newDepartment = await this.departmentService.getById(newDepartmentId);
-    if (!newDepartment) throw new NotFoundException('Department not found');
+    userForUpdate.password = await hash(dto.newPassword);
+    await this.userRepository.save(userForUpdate);
   }
 }
