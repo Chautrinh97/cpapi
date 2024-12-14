@@ -18,6 +18,7 @@ import { PermissionModule } from './modules/permission/permission.module';
 import { APP_GUARD } from '@nestjs/core';
 import { StatisticModule } from './modules/statistic/statistic.module';
 import { BullModule } from '@nestjs/bullmq';
+import { LoggerMiddleware } from './middleware/logger.middleware';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ export class AppModule implements NestModule {
         '/statistic',
       )
       .forRoutes('*');
+    consumer.apply(LoggerMiddleware).forRoutes('*');
     //Use .exclude('route_to_exclude') to exclude some route out of middleware effect.
   }
 }
