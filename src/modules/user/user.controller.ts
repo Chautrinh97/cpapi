@@ -23,28 +23,33 @@ import { AuthGuard } from '@nestjs/passport';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateInfoDto } from './dto/update-info.dto';
+import { PermissionGuard } from 'src/guards/permission.guard';
+import { Permissions } from 'src/decorators/permission.decorator';
 
 @Controller('user')
 @ApiTags('users')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
 @ApiBearerAuth()
 @SkipThrottle()
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @Roles('superadmin')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
-  async create(@Body() createUserDto: CreateUserDto) {
-    return await this.userService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto, @Req() request) {
+    return await this.userService.create(createUserDto, request.user);
   }
 
   @Get()
-  @Roles('superadmin')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
-  async getAll(@Query() query: PaginationQueryDto) {
-    return await this.userService.getAll(query);
+  async getAll(@Query() query: PaginationQueryDto, @Req() request) {
+    return await this.userService.getAllUser(query, request.user);
   }
+
   @Get('/me')
   @HttpCode(HttpStatus.OK)
   async getInfo(@Req() req) {
@@ -52,10 +57,11 @@ export class UserController {
   }
 
   @Get(':id')
-  @Roles('superadmin')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
-  async getById(@Param('id') id: number) {
-    return await this.userService.getById(id);
+  async getById(@Param('id') id: number, @Req() request) {
+    return await this.userService.getUserById(id, request.user);
   }
 
   @Put('/me')
@@ -65,19 +71,23 @@ export class UserController {
   }
 
   @Put(':id')
-  @Roles('superadmin')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
   async updateUser(
     @Param('id') id: number,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() request,
   ) {
-    return await this.userService.updateUser(id, updateUserDto);
+    console.log(updateUserDto);
+    return await this.userService.updateUser(id, updateUserDto, request.user);
   }
 
   @Delete(':id')
-  @Roles('superadmin')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
-  async remove(@Req() req, @Param('id') id: number) {
-    return await this.userService.deleteById(id);
+  async remove(@Req() req, @Param('id') id: number, @Req() request) {
+    return await this.userService.deleteById(id, request.user);
   }
 }

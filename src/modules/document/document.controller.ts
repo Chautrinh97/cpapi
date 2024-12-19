@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -21,20 +22,20 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from 'src/decorators/permission.decorator';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { DocumentPaginationQueryDto } from './dto/document-pagination-query.dto';
-import { ConfigService } from '@nestjs/config';
+import { SyncStatus } from './schemas/document.schema';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
 @Controller('document')
 @ApiTags('documents')
 @ApiBearerAuth()
 export class DocumentController {
-  constructor(
-    private readonly documentService: DocumentService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly documentService: DocumentService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'), PermissionGuard)
-  @Permissions('manage_documents')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
   async create(@Req() req, @Body() createDocumentDto: CreateDocumentDto) {
     return await this.documentService.createDocument(
       req.user,
@@ -43,13 +44,23 @@ export class DocumentController {
   }
 
   @Post('/upload')
-  @UseGuards(AuthGuard('jwt'), PermissionGuard)
-  @Permissions('manage_documents')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
   @UseInterceptors(FileInterceptor('file'))
   async upload(@UploadedFile() file: Express.Multer.File) {
     return {
       key: await this.documentService.uploadDocument(file),
     };
+  }
+
+  @Post('/unload/:key')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
+  @UseInterceptors(FileInterceptor('file'))
+  async unload(@Param('key') key: string) {
+    return await this.documentService.unloadDocument(key);
   }
 
   @Get('/download/:id')
@@ -61,8 +72,9 @@ export class DocumentController {
   }
 
   @Put(':id')
-  @UseGuards(AuthGuard('jwt'), PermissionGuard)
-  @Permissions('manage_documents')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
   async update(
     @Param('id') id: number,
     @Body() updateDocumentDto: UpdateDocumentDto,
@@ -71,8 +83,9 @@ export class DocumentController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'), PermissionGuard)
-  @Permissions('manage_documents')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
   async delete(@Param('id') id: number) {
     return await this.documentService.deleteDocument(id);
   }
@@ -85,5 +98,32 @@ export class DocumentController {
   @Get()
   async getAll(@Query() query: DocumentPaginationQueryDto) {
     return await this.documentService.getAllDocument(query);
+  }
+
+  @Post('/sync/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
+  async syncDocument(@Param('id') id: number) {
+    return await this.documentService.syncDocument(id);
+  }
+
+  @Post('/sync/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
+  async unsyncDocument(@Param('id') id: number) {
+    return await this.documentService.unsyncDocument(id);
+  }
+
+  @Patch('/update-sync-status/:id')
+  async updateSyncStatus(
+    @Param('id') id: number,
+    @Body() body: { syncStatus: SyncStatus },
+  ) {
+    return await this.documentService.updateDocumentSyncStatus(
+      id,
+      body.syncStatus,
+    );
   }
 }

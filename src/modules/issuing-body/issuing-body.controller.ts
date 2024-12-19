@@ -17,10 +17,12 @@ import { AuthGuard } from '@nestjs/passport';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { CreateIssuingBodyDto } from './dto/create-issuing-body.dto';
 import { UpdateIssuingBodyDto } from './dto/update-issuing-body.dto';
+import { Roles } from 'src/decorators/roles.decorator';
+import { RolesGuard } from 'src/guards/roles.guard';
 
 @Controller('issuing-body')
 @ApiTags('issuing bodies')
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
 @ApiBearerAuth()
 export class IssuingBodyController {
   constructor(private readonly issuingBodyService: IssuingBodyService) {}
@@ -36,14 +38,15 @@ export class IssuingBodyController {
   }
 
   @Post()
-  @Permissions('manage_issuing_bodies')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async create(@Body() createIssuingBodyDto: CreateIssuingBodyDto) {
     return this.issuingBodyService.createIssuingBody(createIssuingBodyDto);
   }
 
   @Put(':id')
-  @UseGuards(PermissionGuard)
-  @Permissions('manage_issuing_bodies')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async update(
     @Param('id') id: number,
     @Body() updateIssuingBodyDto: UpdateIssuingBodyDto,
@@ -52,7 +55,8 @@ export class IssuingBodyController {
   }
 
   @Delete(':id')
-  @Permissions('manage_issuing_bodies')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async delete(@Param('id') id: number) {
     return this.issuingBodyService.deleteIssuingBody(id);
   }

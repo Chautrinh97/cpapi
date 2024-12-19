@@ -16,7 +16,6 @@ export class DocumentRepository extends Repository<Document> {
       documentType,
       issuingBody,
       validityStatus,
-      isPublic,
       isRegulatory,
       searchKey,
       pageNumber,
@@ -54,10 +53,6 @@ export class DocumentRepository extends Repository<Document> {
       whereConditions.push({ validityStatus });
     }
 
-    if (isPublic !== undefined) {
-      whereConditions.push({ isPublic });
-    }
-
     const [field, order] = orderBy.split(' ');
 
     const skip = (pageNumber - 1) * pageLimit;
@@ -80,7 +75,7 @@ export class DocumentRepository extends Repository<Document> {
   }
 
   async countUncategorizedByDocumentType(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, isPublic, validityStatus } = query;
+    const { isRegulatory, validityStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.documentType', 'documentType')
@@ -96,15 +91,11 @@ export class DocumentRepository extends Repository<Document> {
       });
     }
 
-    if (isPublic !== undefined) {
-      qb.andWhere('document.isPublic = :isPublic', { isPublic });
-    }
-
     return await qb.getCount();
   }
 
   async countUncategorizedByDocumentField(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, isPublic, validityStatus } = query;
+    const { isRegulatory, validityStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.documentField', 'documentField')
@@ -120,15 +111,11 @@ export class DocumentRepository extends Repository<Document> {
       });
     }
 
-    if (isPublic !== undefined) {
-      qb.andWhere('document.isPublic = :isPublic', { isPublic });
-    }
-
     return await qb.getCount();
   }
 
   async countUncategorizedByIssuingBody(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, isPublic, validityStatus } = query;
+    const { isRegulatory, validityStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.issuingBody', 'issuingBody')
@@ -142,10 +129,6 @@ export class DocumentRepository extends Repository<Document> {
       qb.andWhere('document.validityStatus = :validityStatus', {
         validityStatus,
       });
-    }
-
-    if (isPublic !== undefined) {
-      qb.andWhere('document.isPublic = :isPublic', { isPublic });
     }
 
     return await qb.getCount();

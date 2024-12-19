@@ -30,7 +30,6 @@ export class StatisticService {
 
     const {
       totalDocuments,
-      totalPublic,
       totalRegulatory,
       totalValid,
       uncategorizedByType,
@@ -84,7 +83,6 @@ export class StatisticService {
         totalDocumentFields,
         totalDocumentTypes,
         totalIssuingBodies,
-        totalPublic,
         totalRegulatory,
         totalValid,
         documentTypes: groupDocumentTypes,

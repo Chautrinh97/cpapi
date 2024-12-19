@@ -16,6 +16,8 @@ import { PermissionService } from '../permission/permission.service';
 // import { AuthService } from '../auth/auth.service';
 // import { ModuleRef } from '@nestjs/core';
 import { UpdateInfoDto } from './dto/update-info.dto';
+import { UserRole } from './schemas/user.schema';
+import { Permission } from '../permission/schemas/permission.schema';
 @Injectable()
 export class UserService implements OnModuleInit {
   // private authService: AuthService;
@@ -29,11 +31,11 @@ export class UserService implements OnModuleInit {
     // this.authService = this.moduleRef.get(AuthService, { strict: false });
   }
 
-  async create(dto: CreateUserDto) {
+  async create(dto: CreateUserDto, requestUser: any) {
     const existeduser = await this.userRepository.findOneBy({
       email: dto.email,
     });
-    if (existeduser) throw new ConflictException('Email aldready exists');
+    if (existeduser) throw new ConflictException('EXIST_EMAIL');
 
     const user = await this.userRepository.create();
 
@@ -43,6 +45,15 @@ export class UserService implements OnModuleInit {
       );
       if (!authorityGroup)
         throw new NotFoundException('Authority group is not found');
+      const userWhoCreating = await this.userRepository.findOne({
+        where: { id: requestUser.id },
+      });
+      if (userWhoCreating.role !== UserRole.SUPERAMIN)
+        throw new ForbiddenException(
+          "You're not allowed to set user authority group",
+        );
+      if (dto.role === UserRole.GUEST)
+        throw new ConflictException("Can't set authority for guest");
       user.authorityGroup = authorityGroup;
     }
 
@@ -50,31 +61,57 @@ export class UserService implements OnModuleInit {
       ...dto,
       password: await hash(dto.password),
     });
-
-    // await this.authService.sendConfirmEmail(user.email);
-
     return await this.userRepository.save(user);
   }
 
-  async getAll(query: PaginationQueryDto) {
-    return await this.userRepository.getAll(query);
+  async getAllUser(query: PaginationQueryDto, userRequest: any) {
+    if (userRequest.role === UserRole.SUPERAMIN)
+      return await this.userRepository.getAll(query);
+    return await this.userRepository.getAll(query, userRequest.id);
   }
 
-  async getById(id: number) {
+  async getUserById(id: number, requestUser: any) {
     const user = await this.userRepository.findOne({
       where: { id: id },
-      relations: ['authorityGroup'],
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
     });
     if (!user) throw new NotFoundException('User not founds.');
+    const userWhoGetting = await this.userRepository.findOne({
+      where: { id: requestUser.id },
+    });
+    if (
+      userWhoGetting.role !== UserRole.SUPERAMIN &&
+      user.authorityGroup?.permissions.some(
+        (permission: Permission) => permission.name === 'manage_users',
+      )
+    ) {
+      throw new ForbiddenException("You're not allow to get this user info.");
+    }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...sanitizedUser } = user;
     return sanitizedUser;
   }
 
-  async updateUser(id: number, dto: UpdateUserDto) {
-    const userForUpdate = await this.userRepository.findOne({ where: { id } });
+  async updateUser(id: number, dto: UpdateUserDto, requestUser: any) {
+    const userForUpdate = await this.userRepository.findOne({
+      where: { id: id },
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
+    });
     if (!userForUpdate) {
       throw new NotFoundException('User not found');
+    }
+
+    const userWhoUpdating = await this.userRepository.findOne({
+      where: { id: requestUser.id },
+    });
+
+    if (
+      userWhoUpdating.role !== UserRole.SUPERAMIN &&
+      userForUpdate.authorityGroup?.permissions.some(
+        (permission: Permission) => permission.name === 'manage_users',
+      )
+    ) {
+      return new ForbiddenException("You're not allowed to update this user");
     }
 
     if (dto.password) {
@@ -98,7 +135,7 @@ export class UserService implements OnModuleInit {
         where: { email: dto.email },
       });
       if (existingUserWithEmail) {
-        throw new ConflictException('Email already exists');
+        throw new ConflictException('EXIST_EMAIL');
       }
     }
 
@@ -106,9 +143,15 @@ export class UserService implements OnModuleInit {
       const authorityGroup = await this.permissionService.getAuthorityGroupById(
         dto.authorityGroup,
       );
-      if (!authorityGroup) {
-        throw new NotFoundException('Authority group not found');
-      }
+      if (!authorityGroup)
+        throw new NotFoundException('Authority group is not found');
+
+      if (userWhoUpdating.role !== UserRole.SUPERAMIN)
+        throw new ForbiddenException(
+          "You're not allowed to set user authority group",
+        );
+      if (dto.role === UserRole.GUEST)
+        throw new ConflictException("Can't set authority for guest");
       userForUpdate.authorityGroup = authorityGroup;
     }
 
@@ -117,9 +160,25 @@ export class UserService implements OnModuleInit {
     await this.userRepository.save(userForUpdate);
   }
 
-  async deleteById(userId: number) {
-    const user = await this.userRepository.findOneBy({ id: userId });
-    if (!user) throw new NotFoundException('Not found user');
+  async deleteById(userId: number, requestUser: any) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['authorityGroup', 'authorityGroup.permissions'],
+    });
+    if (!user) throw new NotFoundException('User not founds.');
+    const userWhoDeleting = await this.userRepository.findOne({
+      where: { id: requestUser.id },
+    });
+    if (
+      userWhoDeleting.role !== UserRole.SUPERAMIN &&
+      user.authorityGroup?.permissions.some(
+        (permission: Permission) => permission.name === 'manage_users',
+      )
+    ) {
+      throw new ForbiddenException(
+        "You're not allow to delete this user info.",
+      );
+    }
     return await this.userRepository.delete({ id: userId });
   }
 
@@ -148,10 +207,15 @@ export class UserService implements OnModuleInit {
       relations: ['authorityGroup', 'authorityGroup.permissions'],
     });
     if (!userInfo) throw new NotFoundException('User not found.');
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...sanitizedUser } = user;
     return {
-      user: sanitizedUser,
+      user: {
+        email: userInfo.email,
+        fullName: userInfo.fullName,
+        role: userInfo.role,
+        permissions: userInfo.authorityGroup?.permissions.map(
+          (perm: any) => perm.name,
+        ),
+      },
     };
   }
 

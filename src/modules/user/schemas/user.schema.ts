@@ -1,16 +1,13 @@
-import {
-  Entity,
-  Column,
-  OneToMany,
-  ManyToOne,
-  JoinColumn,
-  Relation,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Relation } from 'typeorm';
 import { IsEmail, Length } from 'class-validator';
-import { Document } from 'src/modules/document/schemas/document.schema';
 import { BaseEntity } from 'src/base/base.schema';
 import { AuthorityGroup } from 'src/modules/permission/schemas/authority-group.schema';
 
+export enum UserRole {
+  SUPERAMIN = 'superadmin',
+  OFFICER = 'officer',
+  GUEST = 'guest',
+}
 @Entity('users')
 export class User extends BaseEntity {
   @Column({ length: 255 })
@@ -26,8 +23,8 @@ export class User extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: ['superadmin', 'officer'],
-    default: 'officer',
+    enum: UserRole,
+    default: UserRole.OFFICER,
   })
   role: string;
 
@@ -45,9 +42,6 @@ export class User extends BaseEntity {
 
   @Column({ default: false })
   isDisabled: boolean;
-
-  @OneToMany(() => Document, (document) => document.createdBy)
-  documents: Document[];
 
   @ManyToOne(() => AuthorityGroup, (authorityGroup) => authorityGroup.users, {
     nullable: true,

@@ -11,6 +11,8 @@ import { UserModule } from '../user/user.module';
 import { DocumentFieldModule } from '../document-field/document-field.module';
 import { DocumentTypeModule } from '../document-type/document-type.module';
 import { IssuingBodyModule } from '../issuing-body/issuing-body.module';
+import { BullModule } from '@nestjs/bullmq';
+import { DocumentProcessConsumer } from './consumer/document-process.consumer';
 
 @Module({
   imports: [
@@ -25,9 +27,12 @@ import { IssuingBodyModule } from '../issuing-body/issuing-body.module';
     DocumentFieldModule,
     DocumentTypeModule,
     IssuingBodyModule,
+    BullModule.registerQueue({
+      name: 'document-process',
+    }),
   ],
+  providers: [DocumentService, DocumentRepository, DocumentProcessConsumer],
   controllers: [DocumentController],
-  providers: [DocumentService, DocumentRepository],
   exports: [DocumentService],
 })
 export class DocumentModule {}

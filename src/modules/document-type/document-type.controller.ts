@@ -17,10 +17,12 @@ import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { DocumentTypeService } from './document-type.service';
 import { CreateDocumentTypeDto } from './dto/create-document-type.dto';
 import { UpdateDocumentTypeDto } from './dto/update-document-type.dto';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
 @Controller('document-type')
 @ApiTags('document types')
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
 @ApiBearerAuth()
 export class DocumentTypeController {
   constructor(private readonly documentTypeService: DocumentTypeService) {}
@@ -36,14 +38,15 @@ export class DocumentTypeController {
   }
 
   @Post()
-  @Permissions('manage_document_types')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async create(@Body() createDocumentTypeDto: CreateDocumentTypeDto) {
     return this.documentTypeService.createDocumentType(createDocumentTypeDto);
   }
 
   @Put(':id')
-  @UseGuards(PermissionGuard)
-  @Permissions('manage_document_types')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async update(
     @Param('id') id: number,
     @Body() updateDocumentTypeDto: UpdateDocumentTypeDto,
@@ -55,7 +58,8 @@ export class DocumentTypeController {
   }
 
   @Delete(':id')
-  @Permissions('manage_document_types')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async delete(@Param('id') id: number) {
     return this.documentTypeService.deleteDocumentType(id);
   }

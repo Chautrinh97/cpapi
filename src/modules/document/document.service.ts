@@ -20,10 +20,15 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import path from 'path';
 import { DocumentStatisticQueryDto } from './dto/document-statistic-query.dto';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { SyncStatus } from './schemas/document.schema';
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class DocumentService {
   private s3Client: S3Client;
-  private MAX_FILE_SIZE: number;
+  private MAX_FILE_SIZE_PDF: number;
+  private MAX_FILE_SIZE_WORD: number;
   private ALLOW_MIME_TYPE = [
     'application/pdf',
     'application/msword',
@@ -35,6 +40,8 @@ export class DocumentService {
     private readonly documentFieldService: DocumentFieldService,
     private readonly issuingBodyService: IssuingBodyService,
     private readonly configService: ConfigService,
+    @InjectQueue('document-process')
+    private readonly documentConsumer: Queue,
   ) {
     this.s3Client = new S3Client({
       endpoint: `https://${this.configService.get<string>('DO_SPACE_ENDPOINT')}`,
@@ -44,7 +51,10 @@ export class DocumentService {
         secretAccessKey: this.configService.get<string>('DO_SPACE_SECRET_KEY'),
       },
     });
-    this.MAX_FILE_SIZE = this.configService.get<number>('MAX_FILE_SIZE');
+    this.MAX_FILE_SIZE_PDF =
+      this.configService.get<number>('MAX_FILE_SIZE_PDF');
+    this.MAX_FILE_SIZE_WORD =
+      this.configService.get<number>('MAX_FILE_SIZE_WORD');
   }
 
   async downloadDocument(id: number) {
@@ -69,14 +79,7 @@ export class DocumentService {
     //   mimeType =
     //     'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-    const command = new GetObjectCommand({
-      Bucket: this.configService.get<string>('DO_SPACE_BUCKET'),
-      Key: file.key,
-    });
-
-    const presignedUrl = await getSignedUrl(this.s3Client, command, {
-      expiresIn: 60,
-    });
+    // const item = await this.s3Client.send(command);
 
     // res.header('Access-Control-Expose-Headers', 'Content-Disposition');
     // res.set({
@@ -84,7 +87,14 @@ export class DocumentService {
     //   'Content-Disposition': `attachment; filename=${fileName}`,
     // });
 
-    return { presignedUrl };
+    const command = new GetObjectCommand({
+      Bucket: this.configService.get<string>('DO_SPACE_BUCKET'),
+      Key: file.key,
+    });
+    const presignedUrl = await getSignedUrl(this.s3Client, command, {
+      expiresIn: 60,
+    });
+    return { url: presignedUrl };
   }
 
   async uploadDocument(file: Express.Multer.File) {
@@ -105,6 +115,15 @@ export class DocumentService {
     return `${key}`;
   }
 
+  async unloadDocument(key: string) {
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: this.configService.get<string>('DO_SPACE_BUCKET'),
+        Key: key,
+      }),
+    );
+  }
+
   async getDocumentStatistic(query: DocumentStatisticQueryDto) {
     const count = await this.documentRepository.count();
 
@@ -114,12 +133,6 @@ export class DocumentService {
       await this.documentRepository.countUncategorizedByDocumentField(query);
     const uncategorizedByBody =
       await this.documentRepository.countUncategorizedByIssuingBody(query);
-
-    const totalPublic = await this.documentRepository.count({
-      where: {
-        isPublic: true,
-      },
-    });
 
     const totalValid = await this.documentRepository.count({
       where: {
@@ -135,7 +148,6 @@ export class DocumentService {
 
     return {
       totalDocuments: count,
-      totalPublic,
       totalRegulatory,
       totalValid,
       uncategorizedByType,
@@ -170,17 +182,17 @@ export class DocumentService {
         throw new NotFoundException('Issuing body not found');
       }
     }
+    const fileUrl = `https://${this.configService.get<string>('DO_SPACE_BUCKET')}.${this.configService.get<string>('DO_SPACE_ENDPOINT')}/${dto.key}`;
     const document = this.documentRepository.create({
       ...dto,
-      storagePath: `https://${this.configService.get<string>('DO_SPACE_BUCKET')}.${this.configService.get<string>('DO_SPACE_ENDPOINT')}/${dto.key}`,
-      createdBy: user.id,
+      fileUrl: fileUrl,
     });
     return await this.documentRepository.save(document);
   }
 
   async updateDocument(id: number, dto: UpdateDocumentDto) {
     const document = await this.documentRepository.findOne({ where: { id } });
-    if (!document) throw new NotFoundException('Document not found');
+    if (!document) throw new NotFoundException('NOT_FOUND_DOCUMENT');
 
     if (dto.documentTypeId) {
       const existedDocumentType =
@@ -212,12 +224,21 @@ export class DocumentService {
       await this.s3Client.send(
         new DeleteObjectCommand({
           Bucket: this.configService.get<string>('DO_SPACE_BUCKET'),
-          Key: document.storagePath,
+          Key: document.key,
         }),
       );
+      if (document.syncStatus === SyncStatus.SYNC) {
+        document.docIndexId = '';
+        await this.documentConsumer.add('unsync-document', {
+          id: id,
+          docIndexId: document.docIndexId,
+        });
+      }
     }
-
     Object.assign(document, dto);
+    if (dto.validityStatus && dto.validityStatus === true) {
+      document.unvalidDate === null;
+    }
     return await this.documentRepository.save(document);
   }
 
@@ -241,24 +262,111 @@ export class DocumentService {
     await this.s3Client.send(
       new DeleteObjectCommand({
         Bucket: this.configService.get<string>('DO_SPACE_BUCKET'),
-        Key: document.storagePath,
+        Key: document.key,
       }),
     );
+    if (document.syncStatus === SyncStatus.SYNC) {
+      await this.documentConsumer.add('unsync-document', {
+        id: id,
+        docIndexId: document.docIndexId,
+      });
+    }
 
     await this.documentRepository.remove(document);
   }
 
   private validateFile(file: Express.Multer.File) {
-    if (file.size > this.MAX_FILE_SIZE * 1024 * 1024) {
-      throw new BadRequestException(
-        `File size exceeds the maximum limit of ${this.MAX_FILE_SIZE}MB.`,
-      );
-    }
-
     if (!this.ALLOW_MIME_TYPE.includes(file.mimetype)) {
       throw new BadRequestException(
         'Invalid file type. Only PDF and Word documents are allowed.',
       );
     }
+
+    let maxFileSize;
+    if (file.mimetype === 'application/pdf') {
+      maxFileSize = this.MAX_FILE_SIZE_PDF * 1024 * 1024;
+    } else {
+      maxFileSize = this.MAX_FILE_SIZE_WORD * 1024;
+    }
+    if (file.size > maxFileSize) {
+      throw new BadRequestException(
+        `File size exceeds the maximum limit of ${maxFileSize} byte.`,
+      );
+    }
+  }
+
+  async syncDocument(id: number) {
+    console.log('Access block to sync document with id: ', id);
+    const document = await this.documentRepository.findOne({
+      where: { id: id },
+    });
+    if (!document) throw new NotFoundException('Document is not found');
+
+    document.syncStatus = SyncStatus.PENDING_SYNC;
+    const docId = uuidv4();
+    document.docIndexId = docId;
+    console.log('DOCUMENT PENDING SYNC: ', document.syncStatus);
+    console.log('Document doc index id: ', docId);
+    await this.documentRepository.save(document);
+
+    await this.documentConsumer.add(
+      'sync-document',
+      {
+        id: id,
+        url: document.fileUrl,
+        key: document.key,
+        docId: docId,
+      },
+      {
+        attempts: 1,
+        backoff: {
+          type: 'exponential',
+          delay: 15000,
+        },
+      },
+    );
+
+    await this.documentConsumer.add(
+      'check-sync-status',
+      { id: id },
+      {
+        delay: 600000,
+      },
+    );
+
+    return { message: 'Please wait to syn document' };
+  }
+
+  async unsyncDocument(id: number) {
+    const document = await this.documentRepository.findOne({
+      where: { id: id },
+    });
+    if (!document) throw new NotFoundException('');
+
+    document.syncStatus = SyncStatus.NOT_SYNC;
+
+    await this.documentConsumer.add('unsync-document', {
+      id: id,
+      docIndexId: document.docIndexId,
+    });
+
+    return { message: 'Please wait to unsync document.' };
+  }
+
+  async updateDocumentSyncStatus(id: number, syncStatus: SyncStatus) {
+    console.log('Access block to update sync status with id: ', id);
+    const document = await this.documentRepository.findOne({
+      where: { id: id },
+    });
+    if (!document) throw new NotFoundException('Not found document');
+    document.syncStatus = syncStatus;
+    console.log(
+      'Already update sync status document with status: ',
+      document.syncStatus,
+    );
+    if (syncStatus === SyncStatus.NOT_SYNC) {
+      document.docIndexId = '';
+    }
+    await this.documentRepository.save(document);
   }
 }

@@ -46,11 +46,15 @@ export class PermissionService {
   }
 
   async getAuthorityGroupById(id: number) {
-    return await this.authorityGroupRepository.findOneBy({ id: id });
+    return await this.authorityGroupRepository.findOne({
+      where: { id: id },
+      relations: ['permissions'],
+    });
   }
 
   async getAllAuthorityGroups() {
     const data = await this.authorityGroupRepository.find({
+      where: { id: Not(1) },
       relations: ['permissions'],
     });
     return {

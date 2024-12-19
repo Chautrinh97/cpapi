@@ -27,18 +27,21 @@ export class CreateDocumentDto {
 
   @ApiProperty()
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
-  isPublic?: boolean;
-
-  @ApiProperty()
-  @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) =>
+    value === undefined ? undefined : value === 'true',
+  )
   isRegulatory?: boolean;
 
   @ApiProperty()
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) =>
+    value === undefined ? undefined : value === 'true',
+  )
   validityStatus?: boolean;
+
+  @ApiProperty()
+  @IsOptional()
+  unvalidDate?: Date;
 
   @ApiProperty()
   @IsNumber()

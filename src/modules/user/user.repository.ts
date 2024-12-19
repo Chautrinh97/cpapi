@@ -9,14 +9,32 @@ export class UserRepository extends Repository<User> {
     super(User, dataSource.createEntityManager());
   }
 
-  async getAll(query: PaginationQueryDto) {
+  async getAll(query: PaginationQueryDto, userRequestId?: number) {
     const { searchKey, pageNumber, pageLimit, isExport, orderBy } = query;
-    const whereConditions = searchKey
-      ? [
-          { fullName: ILike(`%${searchKey}%`), role: Not('superadmin') },
-          { email: ILike(`%${searchKey}%`), role: Not('superadmin') },
-        ]
-      : [{ role: Not('superadmin') }];
+    let whereConditions;
+    if (userRequestId) {
+      whereConditions = searchKey
+        ? [
+            {
+              fullName: ILike(`%${searchKey}%`),
+              role: Not('superadmin'),
+              id: Not(userRequestId),
+            },
+            {
+              email: ILike(`%${searchKey}%`),
+              role: Not('superadmin'),
+              id: Not(userRequestId),
+            },
+          ]
+        : [{ role: Not('superadmin'), id: Not(userRequestId) }];
+    } else {
+      whereConditions = searchKey
+        ? [
+            { fullName: ILike(`%${searchKey}%`), role: Not('superadmin') },
+            { email: ILike(`%${searchKey}%`), role: Not('superadmin') },
+          ]
+        : [{ role: Not('superadmin') }];
+    }
 
     const [field, order] = orderBy.split(' ');
 
@@ -32,6 +50,7 @@ export class UserRepository extends Repository<User> {
     });
 
     const sanitizedUsers = users.map((user) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...sanitizedUser } = user;
       return sanitizedUser;
     });

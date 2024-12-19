@@ -28,12 +28,9 @@ export class PermissionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user: User = request.user;
 
-    if (user.role === 'superadmin') {
-      return true;
-    }
-
     const userWithAuthorityGroup =
       await this.userService.getUserWithAuthorityGroup(user.id);
+
     if (!userWithAuthorityGroup.authorityGroup) {
       throw new ForbiddenException("You don't have permission for this action");
     }
@@ -43,13 +40,13 @@ export class PermissionGuard implements CanActivate {
         (permission) => permission.name,
       );
 
-    const hasPermission = requiredPermissions.every((permission) =>
+    const hasPermission = requiredPermissions.some((permission) =>
       userPermissions.includes(permission),
     );
-
     if (!hasPermission) {
       throw new ForbiddenException("You don't have permission for this action");
     }
+
     return true;
   }
 }

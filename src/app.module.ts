@@ -18,7 +18,8 @@ import { PermissionModule } from './modules/permission/permission.module';
 import { APP_GUARD } from '@nestjs/core';
 import { StatisticModule } from './modules/statistic/statistic.module';
 import { BullModule } from '@nestjs/bullmq';
-import { LoggerMiddleware } from './middleware/logger.middleware';
+import { ConversationModule } from './modules/conversation/conversation.module';
+// import { LoggerMiddleware } from './middleware/logger.middleware';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware';
     DocumentModule,
     IssuingBodyModule,
     StatisticModule,
+    ConversationModule,
     MailerModule.forRootAsync({
       imports: [AppConfigModule],
       useFactory: (configService: AppConfigService) => configService.mailConfig,
@@ -86,9 +88,11 @@ export class AppModule implements NestModule {
         '/permission',
         '/permission/(.*)',
         '/statistic',
+        '/conversation',
+        '/conversation/(.*)',
       )
       .forRoutes('*');
-    consumer.apply(LoggerMiddleware).forRoutes('*');
+    // consumer.apply(LoggerMiddleware).forRoutes('*');
     //Use .exclude('route_to_exclude') to exclude some route out of middleware effect.
   }
 }

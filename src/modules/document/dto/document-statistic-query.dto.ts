@@ -15,11 +15,4 @@ export class DocumentStatisticQueryDto {
     value === undefined ? undefined : value === 'true',
   )
   validityStatus: boolean;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @Transform(({ value }) =>
-    value === undefined ? undefined : value === 'true',
-  )
-  isPublic: boolean;
 }

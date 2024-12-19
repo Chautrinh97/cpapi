@@ -17,10 +17,12 @@ import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { DocumentFieldService } from './document-field.service';
 import { CreateDocumentFieldDto } from './dto/create-document-field.dto';
 import { UpdateDocumentFieldDto } from './dto/update-document-field.dto';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { Roles } from 'src/decorators/roles.decorator';
 
 @Controller('document-field')
 @ApiTags('document fields')
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
 @ApiBearerAuth()
 export class DocumentFieldController {
   constructor(private readonly documentFieldService: DocumentFieldService) {}
@@ -36,7 +38,8 @@ export class DocumentFieldController {
   }
 
   @Post()
-  @Permissions('manage_document_fields')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async create(@Body() createDocumentFieldDto: CreateDocumentFieldDto) {
     return this.documentFieldService.createDocumentField(
       createDocumentFieldDto,
@@ -44,8 +47,8 @@ export class DocumentFieldController {
   }
 
   @Put(':id')
-  @UseGuards(PermissionGuard)
-  @Permissions('manage_document_fields')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async update(
     @Param('id') id: number,
     @Body() updateDocumentFieldDto: UpdateDocumentFieldDto,
@@ -57,7 +60,8 @@ export class DocumentFieldController {
   }
 
   @Delete(':id')
-  @Permissions('manage_document_fields')
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents_properties')
   async delete(@Param('id') id: number) {
     return this.documentFieldService.deleteDocumentField(id);
   }

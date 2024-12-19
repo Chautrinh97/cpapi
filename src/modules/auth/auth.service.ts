@@ -56,7 +56,7 @@ export class AuthService {
     await this.matchedPassword(user);
 
     if (!user.isVerified) {
-      const tokenToVerify = await this.getTokenToVeriy(user);
+      const tokenToVerify = await this.getTokenToVeriy(user.email);
       await this.emailConsumer.add(
         'verify-email',
         {
@@ -273,7 +273,7 @@ export class AuthService {
   //------------------------------------------------------------------
   //------------------------------------------------------------------
 
-  private async getTokenToVeriy(email) {
+  private async getTokenToVeriy(email: string) {
     return await this.jwtService.signAsync(
       { email: email },
       {
@@ -338,6 +338,7 @@ export class AuthService {
       {
         email: user.email,
         role: user.role,
+        permissions: user.authorityGroup?.permissions.map((perm) => perm.name),
       },
       {
         secret: this.configService.get<string>('JWT_SECRET'),

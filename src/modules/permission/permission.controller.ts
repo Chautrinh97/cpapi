@@ -28,7 +28,7 @@ export class PermissionController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  async getAll() {
+  async getAllAuthorityGroup() {
     return await this.permissionService.getAllAuthorityGroups();
   }
 
