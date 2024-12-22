@@ -1,7 +1,15 @@
-import { Entity, Column, ManyToOne, JoinColumn, Relation } from 'typeorm';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Relation,
+  OneToMany,
+} from 'typeorm';
 import { IsEmail, Length } from 'class-validator';
 import { BaseEntity } from 'src/base/base.schema';
 import { AuthorityGroup } from 'src/modules/permission/schemas/authority-group.schema';
+import { Conversation } from 'src/modules/conversation/schemas/conversation.schema';
 
 export enum UserRole {
   SUPERAMIN = 'superadmin',
@@ -49,4 +57,7 @@ export class User extends BaseEntity {
   })
   @JoinColumn({ name: 'authority_group_id' })
   authorityGroup: Relation<AuthorityGroup>;
+
+  @OneToMany(() => Conversation, (conversation) => conversation.user)
+  conversations: Conversation[];
 }

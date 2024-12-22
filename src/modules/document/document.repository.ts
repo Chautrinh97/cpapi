@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, ILike, Repository } from 'typeorm';
-import { Document } from './schemas/document.schema';
+import { DataSource, ILike, Not, Repository } from 'typeorm';
+import { Document, SyncStatus } from './schemas/document.schema';
 import { DocumentPaginationQueryDto } from './dto/document-pagination-query.dto';
 import { DocumentStatisticQueryDto } from './dto/document-statistic-query.dto';
 
@@ -15,8 +15,9 @@ export class DocumentRepository extends Repository<Document> {
       documentField,
       documentType,
       issuingBody,
-      validityStatus,
       isRegulatory,
+      isValid,
+      isSync,
       searchKey,
       pageNumber,
       pageLimit,
@@ -49,8 +50,16 @@ export class DocumentRepository extends Repository<Document> {
       whereConditions.push({ isRegulatory });
     }
 
-    if (validityStatus !== undefined) {
-      whereConditions.push({ validityStatus });
+    if (isValid !== undefined) {
+      whereConditions.push({ validityStatus: isValid });
+    }
+
+    if (isSync !== undefined && isSync === true) {
+      whereConditions.push({ syncStatus: SyncStatus.SYNC });
+    }
+
+    if (isSync !== undefined && isSync === false) {
+      whereConditions.push({ syncStatus: Not(SyncStatus.SYNC) });
     }
 
     const [field, order] = orderBy.split(' ');
@@ -75,7 +84,7 @@ export class DocumentRepository extends Repository<Document> {
   }
 
   async countUncategorizedByDocumentType(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, validityStatus } = query;
+    const { isRegulatory, validityStatus, syncStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.documentType', 'documentType')
@@ -91,11 +100,17 @@ export class DocumentRepository extends Repository<Document> {
       });
     }
 
+    if (syncStatus !== undefined) {
+      qb.andWhere('document.syncStatus = :status', {
+        status: SyncStatus.SYNC,
+      });
+    }
+
     return await qb.getCount();
   }
 
   async countUncategorizedByDocumentField(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, validityStatus } = query;
+    const { isRegulatory, validityStatus, syncStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.documentField', 'documentField')
@@ -111,11 +126,17 @@ export class DocumentRepository extends Repository<Document> {
       });
     }
 
+    if (syncStatus !== undefined) {
+      qb.andWhere('document.syncStatus = :status', {
+        status: SyncStatus.SYNC,
+      });
+    }
+
     return await qb.getCount();
   }
 
   async countUncategorizedByIssuingBody(query: DocumentStatisticQueryDto) {
-    const { isRegulatory, validityStatus } = query;
+    const { isRegulatory, validityStatus, syncStatus } = query;
 
     const qb = this.createQueryBuilder('document')
       .leftJoin('document.issuingBody', 'issuingBody')
@@ -131,6 +152,11 @@ export class DocumentRepository extends Repository<Document> {
       });
     }
 
+    if (syncStatus !== undefined) {
+      qb.andWhere('document.syncStatus = :status', {
+        status: SyncStatus.SYNC,
+      });
+    }
     return await qb.getCount();
   }
 }

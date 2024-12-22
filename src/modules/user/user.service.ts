@@ -93,12 +93,13 @@ export class UserService implements OnModuleInit {
   }
 
   async updateUser(id: number, dto: UpdateUserDto, requestUser: any) {
+    console.log(dto);
     const userForUpdate = await this.userRepository.findOne({
       where: { id: id },
       relations: ['authorityGroup', 'authorityGroup.permissions'],
     });
     if (!userForUpdate) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('NOT_FOUND_USER');
     }
 
     const userWhoUpdating = await this.userRepository.findOne({
@@ -111,19 +112,17 @@ export class UserService implements OnModuleInit {
         (permission: Permission) => permission.name === 'manage_users',
       )
     ) {
-      return new ForbiddenException("You're not allowed to update this user");
+      throw new ForbiddenException('NOT_ALLOW_UPDATE_USER');
     }
 
-    if (dto.password) {
+    if (dto.password && dto.password !== '') {
       dto.password = await hash(dto.password);
+    } else {
+      dto.password = undefined;
     }
 
-    if (
-      userForUpdate.isVerified &&
-      dto.email &&
-      dto.email !== userForUpdate.email
-    ) {
-      throw new ForbiddenException("User's email already verified.");
+    if (userForUpdate.isVerified) {
+      throw new ForbiddenException('VERIFIED_USER');
     }
 
     if (
@@ -144,14 +143,12 @@ export class UserService implements OnModuleInit {
         dto.authorityGroup,
       );
       if (!authorityGroup)
-        throw new NotFoundException('Authority group is not found');
+        throw new NotFoundException('NOT_FOUND_AUTHORITY_GROUP');
 
       if (userWhoUpdating.role !== UserRole.SUPERAMIN)
-        throw new ForbiddenException(
-          "You're not allowed to set user authority group",
-        );
+        throw new ForbiddenException('NOT_ALLOW_SET_AUTHORITY');
       if (dto.role === UserRole.GUEST)
-        throw new ConflictException("Can't set authority for guest");
+        throw new ForbiddenException('GUESS_ACCOUNT');
       userForUpdate.authorityGroup = authorityGroup;
     }
 

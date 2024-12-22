@@ -1,28 +1,27 @@
+// import path from 'path';
+// import * as fs from 'fs';
+// import { Document, LlamaParseReader } from 'llamaindex';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import axios from 'axios';
 import { Job } from 'bullmq';
-import path from 'path';
-import * as fs from 'fs';
 import { ConfigService } from '@nestjs/config';
-import { Document, LlamaParseReader } from 'llamaindex';
 import { DocumentRepository } from '../document.repository';
-import { OnModuleInit } from '@nestjs/common';
-import { SyncStatus } from '../schemas/document.schema';
+import { HttpStatus, OnModuleInit } from '@nestjs/common';
+import { SyncStatus, Document } from '../schemas/document.schema';
+import { DocumentService } from '../document.service';
 @Processor('document-process', { concurrency: 2 })
 export class DocumentProcessConsumer
   extends WorkerHost
   implements OnModuleInit
 {
-  private count;
   constructor(
     private readonly configService: ConfigService,
     private readonly documentRepository: DocumentRepository,
+    private readonly documentService: DocumentService,
   ) {
     super();
   }
-  onModuleInit() {
-    this.count = 0;
-  }
+  onModuleInit() {}
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async process(job: Job<any, any, string>, token?: string): Promise<any> {
     switch (job.name) {
@@ -32,13 +31,14 @@ export class DocumentProcessConsumer
       case 'unsync-document':
         await this.unsyncDocument(job.data);
         break;
-      case 'check-sync-status':
-        await this.checkSyncStatus(job.data);
+      case 'resync-document':
+        await this.removeAndResyncDocument(job.data);
+        break;
     }
   }
 
   private async syncDocument(data) {
-    const { id, url, key, docId } = data;
+    /*const { id, url, key, docId } = data;
     let parsedDocument: Document;
     try {
       const filePath = await this.downloadFile(url, key);
@@ -89,45 +89,135 @@ export class DocumentProcessConsumer
       document.syncStatus = SyncStatus.FAILED_SYNC;
       document.docIndexId = '';
       await this.documentRepository.save(document);
-    }
-  }
+    } */
 
-  async unsyncDocument(data) {
-    const { id, docIndexId } = data;
+    console.log('ACCESS SENDING SYNC REQUEST');
+
+    const document = await this.documentRepository.findOne({
+      where: { id: data.id },
+      relations: ['issuingBody', 'documentType', 'documentField'],
+    });
+
     try {
-      await axios.post(
-        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
-        JSON.stringify({
-          doc_id: docIndexId,
-        }),
+      const response = await axios.post(
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/sync`,
+        JSON.stringify(this.getDocumentMetadata(document)),
         {
           headers: {
             'Content-Type': 'application/json',
           },
         },
       );
-    } catch {
-      const document = await this.documentRepository.findOne({
-        where: { id: id },
-      });
-      document.syncStatus = SyncStatus.SYNC;
+
+      if (response.status === HttpStatus.OK) {
+        console.log('SYNC DOCUMENT SUCCESSFULLY');
+        const docIndexId = response.data.doc_id;
+        document.syncStatus = SyncStatus.SYNC;
+        document.docIndexId = docIndexId;
+        document.isLocked = false;
+      } else {
+        console.log('SYNC DOCUMENT FAILED');
+        document.isLocked = false;
+        document.syncStatus = SyncStatus.NOT_SYNC;
+      }
       await this.documentRepository.save(document);
-      return;
+    } catch {
+      console.log('PROBLEM IN POST REQUEST SYNC DOCUMENT -> FAILED');
+      document.syncStatus = SyncStatus.NOT_SYNC;
+      document.isLocked = false;
+      await this.documentRepository.save(document);
     }
   }
 
-  private async checkSyncStatus(data) {
-    const { id } = data;
+  async unsyncDocument(data) {
+    const { id, docIndexId } = data;
     const document = await this.documentRepository.findOne({
       where: { id: id },
     });
-    if (!document) return;
-    if (document.syncStatus !== SyncStatus.PENDING_SYNC) return;
-    document.syncStatus = SyncStatus.FAILED_SYNC;
-    await this.documentRepository.save(document);
+    try {
+      const response = await axios.post(
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
+        JSON.stringify({ doc_id: docIndexId }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+
+      if (response.status !== HttpStatus.OK) {
+        document.syncStatus = SyncStatus.SYNC;
+      } else {
+        document.docIndexId = '';
+      }
+      document.isLocked = false;
+      await this.documentRepository.save(document);
+    } catch {
+      document.syncStatus = SyncStatus.SYNC;
+      document.isLocked = false;
+      await this.documentRepository.save(document);
+    }
   }
 
-  private async downloadFile(url: string, key: string) {
+  private async removeAndResyncDocument(data) {
+    const { id } = data;
+    //Lúc này document đã lưu key và file url mới.
+    const document = await this.documentRepository.findOne({
+      where: { id: id },
+      relations: ['issuingBody', 'documentType', 'documentField'],
+    });
+    const documentMetadata = this.getDocumentMetadata(document);
+    const requestData = { doc_id: document.docIndexId, ...documentMetadata };
+    try {
+      const response = await axios.post(
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/remove-and-sync`,
+        JSON.stringify(requestData),
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      if (response.status === HttpStatus.OK) {
+        //Cập nhật document với docIndexId mới
+        document.docIndexId = response.data.doc_id;
+        document.syncStatus = SyncStatus.SYNC;
+        console.log('REMOVE AND SYNC DOCUMENT SUCCESFULLY');
+      } else {
+        console.log('REMOVE AND SYNC DOCUMENT FAILED');
+        document.syncStatus = SyncStatus.FAILED_RESYNC;
+      }
+      document.isLocked = false;
+      await this.documentRepository.save(document);
+    } catch {
+      console.log('PROBLEM IN REQUEST REMOVE AND SYNC DOCUMENT -> FAILED');
+      document.syncStatus = SyncStatus.FAILED_RESYNC;
+      document.isLocked = false;
+      await this.documentRepository.save(document);
+    }
+  }
+
+  private getDocumentMetadata(document: Document) {
+    return {
+      title: document.title,
+      referenceNumber: document.referenceNumber || '',
+      issuingBody: document.issuingBody?.name || '',
+      documentType: document.documentType?.name || '',
+      documentField: document.documentField?.name || '',
+      issuanceDate: document.issuanceDate
+        ? document.issuanceDate.toDateString()
+        : '',
+      effectiveDate: document.effectiveDate
+        ? document.effectiveDate.toDateString()
+        : '',
+      isRegulatory: document.isRegulatory
+        ? 'regulatory document'
+        : 'non-regulatory document',
+      validityStatus: document.validityStatus ? 'valid' : 'expired',
+      invalidDate: document.invalidDate
+        ? document.invalidDate.toDateString()
+        : '',
+      fileUrl: document.fileUrl,
+    };
+  }
+
+  /* private async downloadFile(url: string, key: string) {
     try {
       const response = await axios.get(url, {
         responseType: 'stream',
@@ -158,5 +248,5 @@ export class DocumentProcessConsumer
       console.error(`Lỗi khi xóa file: ${error.message}`);
       throw new Error(`Không thể xóa file: ${filePath}`);
     }
-  }
+  } */
 }

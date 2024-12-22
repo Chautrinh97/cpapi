@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsString, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 
 export class CreateDocumentDto {
   @ApiProperty()
@@ -41,7 +41,7 @@ export class CreateDocumentDto {
 
   @ApiProperty()
   @IsOptional()
-  unvalidDate?: Date;
+  invalidDate?: Date;
 
   @ApiProperty()
   @IsNumber()
@@ -69,4 +69,8 @@ export class CreateDocumentDto {
   @ApiProperty()
   @IsNumber()
   documentSize: number;
+
+  @ApiProperty()
+  @IsBoolean()
+  isSync?: boolean;
 }

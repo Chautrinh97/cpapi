@@ -27,7 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       return req.cookies.accessToken;
     }
 
-    console.log('NO COOKIE FOUND');
+    // console.log('NO COOKIE FOUND');
     return null;
   }
 }

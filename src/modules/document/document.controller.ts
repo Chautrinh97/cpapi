@@ -3,12 +3,13 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
-  Patch,
+  // Patch,
   Post,
   Put,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -22,7 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Permissions } from 'src/decorators/permission.decorator';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { DocumentPaginationQueryDto } from './dto/document-pagination-query.dto';
-import { SyncStatus } from './schemas/document.schema';
+// import { SyncStatus } from './schemas/document.schema';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { Roles } from 'src/decorators/roles.decorator';
 
@@ -32,22 +33,12 @@ import { Roles } from 'src/decorators/roles.decorator';
 export class DocumentController {
   constructor(private readonly documentService: DocumentService) {}
 
-  @Post()
-  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
-  @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
-  async create(@Req() req, @Body() createDocumentDto: CreateDocumentDto) {
-    return await this.documentService.createDocument(
-      req.user,
-      createDocumentDto,
-    );
-  }
-
   @Post('/upload')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
   @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
   async upload(@UploadedFile() file: Express.Multer.File) {
     return {
       key: await this.documentService.uploadDocument(file),
@@ -59,11 +50,13 @@ export class DocumentController {
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
   @UseInterceptors(FileInterceptor('file'))
+  @HttpCode(HttpStatus.OK)
   async unload(@Param('key') key: string) {
     return await this.documentService.unloadDocument(key);
   }
 
   @Get('/download/:id')
+  @HttpCode(HttpStatus.OK)
   async downloadFile(
     @Param('id') id: number,
     // @Res({ passthrough: true }) res: Response,
@@ -75,6 +68,7 @@ export class DocumentController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
+  @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: number,
     @Body() updateDocumentDto: UpdateDocumentDto,
@@ -86,11 +80,13 @@ export class DocumentController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
+  @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: number) {
     return await this.documentService.deleteDocument(id);
   }
 
   @Get(':id')
+  @HttpCode(HttpStatus.OK)
   async getById(@Param('id') id: number) {
     return await this.documentService.getDocumentById(id);
   }
@@ -104,19 +100,31 @@ export class DocumentController {
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
+  @HttpCode(HttpStatus.OK)
   async syncDocument(@Param('id') id: number) {
     return await this.documentService.syncDocument(id);
   }
 
-  @Post('/sync/:id')
+  @Post('/unsync/:id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
   @Permissions('manage_documents', 'manage_documents_properties')
+  @HttpCode(HttpStatus.OK)
   async unsyncDocument(@Param('id') id: number) {
     return await this.documentService.unsyncDocument(id);
   }
 
-  @Patch('/update-sync-status/:id')
+  @Post()
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_documents', 'manage_documents_properties')
+  @HttpCode(HttpStatus.OK)
+  async create(@Body() createDocumentDto: CreateDocumentDto) {
+    return await this.documentService.createDocument(createDocumentDto);
+  }
+
+  /*   @Patch('/update-sync-status/:id')
+  @HttpCode(HttpStatus.OK)
   async updateSyncStatus(
     @Param('id') id: number,
     @Body() body: { syncStatus: SyncStatus },
@@ -125,5 +133,5 @@ export class DocumentController {
       id,
       body.syncStatus,
     );
-  }
+  } */
 }

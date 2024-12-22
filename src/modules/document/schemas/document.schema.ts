@@ -15,7 +15,7 @@ export enum SyncStatus {
   PENDING_SYNC = 'PENDING_SYNC',
   NOT_SYNC = 'NOT_SYNC',
   SYNC = 'SYNC',
-  FAILED_SYNC = 'FAILED_SYNC',
+  FAILED_RESYNC = 'FAILED_RESYNC',
 }
 @Entity('documents')
 export class Document extends BaseEntity {
@@ -53,8 +53,8 @@ export class Document extends BaseEntity {
   @Column({ default: true, name: 'validity_status' })
   validityStatus: boolean;
 
-  @Column({ nullable: true, name: 'unvalid_date' })
-  unvalidDate: Date;
+  @Column({ nullable: true, name: 'invalid_date' })
+  invalidDate: Date;
 
   @ManyToOne(() => DocumentField, (documentField) => documentField.documents, {
     onDelete: 'SET NULL',
@@ -88,4 +88,10 @@ export class Document extends BaseEntity {
     nullable: true,
   })
   docIndexId: string;
+
+  @Column({
+    name: 'is_locked',
+    default: false,
+  })
+  isLocked: boolean;
 }

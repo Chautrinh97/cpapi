@@ -34,5 +34,12 @@ export class DocumentPaginationQueryDto extends PaginationQueryDto {
   @Transform(({ value }) =>
     value === undefined ? undefined : value === 'true',
   )
-  validityStatus: boolean;
+  isValid: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined ? undefined : value === 'true',
+  )
+  isSync: boolean;
 }

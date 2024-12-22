@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { CreateUserDto } from './create-user.dto';
-import { IsOptional } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
@@ -8,4 +8,8 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
     value === undefined ? undefined : value === 'true',
   )
   isDisabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 }
