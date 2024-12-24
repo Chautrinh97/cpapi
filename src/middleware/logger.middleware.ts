@@ -9,9 +9,6 @@ export class LoggerMiddleware implements NestMiddleware {
       method: req.method, // GET, POST, etc.
       url: req.originalUrl, // The requested URL
       headers: req.headers, // Request headers
-      ip: req.ip, // Client IP address
-      body: req.body, // Request body (if any)
-      query: req.query, // Query parameters (if any)
     });
     next();
   }

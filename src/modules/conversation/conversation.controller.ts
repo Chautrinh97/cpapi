@@ -1,7 +1,18 @@
-import { Body, Controller, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ConversationService } from './conversation.service';
-import { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('conversations')
@@ -10,23 +21,34 @@ import { AuthGuard } from '@nestjs/passport';
 @ApiBearerAuth()
 export class ConversationController {
   constructor(private readonly conversationService: ConversationService) {}
+  @Get('')
+  async getConversationsByUser(@Req() request) {
+    return this.conversationService.getConversationsByUser(request.user);
+  }
 
-  @Post('/chat')
-  async chat(
-    @Req() request,
-    @Body('question') question: string,
-    @Res() response: Response,
+  @Get(':slug')
+  async getConversationMessages(@Req() request, @Param('slug') slug: string) {
+    return this.conversationService.getConversationMessages(request.user, slug);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.OK)
+  async createConversation(@Req() request) {
+    return this.conversationService.createConversation(request.user);
+  }
+
+  @Put(':id')
+  @HttpCode(HttpStatus.OK)
+  async renameConversation(
+    @Param('id') id: number,
+    @Body() dto: { title: string },
   ) {
-    const stream = await this.conversationService.getChat(
-      request.user,
-      question,
-    );
+    return this.conversationService.renameConversation(id, dto);
+  }
 
-    response.set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
-    stream.pipe(response);
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  async deleteConversation(@Param('id') id: number) {
+    return this.conversationService.deleteConversation(id);
   }
 }

@@ -5,10 +5,11 @@ import { UserModule } from '../user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Conversation } from './schemas/conversation.schema';
 import { Message } from './schemas/message.chema';
+import { ConversationRepository } from './conversation.repository';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Conversation, Message]), UserModule],
-  providers: [ConversationService],
+  providers: [ConversationService, ConversationRepository],
   controllers: [ConversationController],
 })
 export class ConversationModule {}

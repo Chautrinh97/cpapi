@@ -93,7 +93,6 @@ export class UserService implements OnModuleInit {
   }
 
   async updateUser(id: number, dto: UpdateUserDto, requestUser: any) {
-    console.log(dto);
     const userForUpdate = await this.userRepository.findOne({
       where: { id: id },
       relations: ['authorityGroup', 'authorityGroup.permissions'],
@@ -206,6 +205,7 @@ export class UserService implements OnModuleInit {
     if (!userInfo) throw new NotFoundException('User not found.');
     return {
       user: {
+        userId: userInfo.id,
         email: userInfo.email,
         fullName: userInfo.fullName,
         role: userInfo.role,

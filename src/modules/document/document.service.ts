@@ -344,8 +344,7 @@ export class DocumentService {
   }
 
   async getAllDocument(query: DocumentPaginationQueryDto) {
-    const documents = await this.documentRepository.getAll(query);
-    return documents;
+    return await this.documentRepository.getAll(query);
   }
 
   async getDocumentById(id: number) {
@@ -433,6 +432,8 @@ export class DocumentService {
     if (!document) throw new NotFoundException('Not found document');
     if (document.isLocked)
       throw new ConflictException('Some progress is running');
+    if (document.syncStatus === SyncStatus.NOT_SYNC)
+      throw new ForbiddenException('Document aldready unsync before');
     document.isLocked = true;
     document.syncStatus = SyncStatus.NOT_SYNC;
     await this.documentRepository.save(document);

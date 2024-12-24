@@ -336,6 +336,7 @@ export class AuthService {
   private async getTokens(user: User, isRefresh = false) {
     const accessToken = this.jwtService.sign(
       {
+        userId: user.id,
         email: user.email,
         role: user.role,
         permissions: user.authorityGroup?.permissions.map((perm) => perm.name),
