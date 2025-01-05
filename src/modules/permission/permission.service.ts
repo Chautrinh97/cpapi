@@ -19,32 +19,6 @@ export class PermissionService {
     private readonly authorityGroupRepository: Repository<AuthorityGroup>,
   ) {}
 
-  async seedPermissions() {
-    const defaultPermissions = [
-      { name: 'manage_documents', description: 'Quản lý tài liệu' },
-      {
-        name: 'manage_issuing_bodies',
-        description: 'Quản lý cơ quan ban hành',
-      },
-      { name: 'manage_document_types', description: 'Quản lý loại tài liệu' },
-      {
-        name: 'manage_document_fields',
-        description: 'Quản lý lĩnh vực tài liệu',
-      },
-    ];
-
-    for (const permissionData of defaultPermissions) {
-      const permissionExists = await this.permissionRepository.findOne({
-        where: { name: permissionData.name },
-      });
-
-      if (!permissionExists) {
-        const permission = this.permissionRepository.create(permissionData);
-        await this.permissionRepository.save(permission);
-      }
-    }
-  }
-
   async getAuthorityGroupById(id: number) {
     return await this.authorityGroupRepository.findOne({
       where: { id: id },

@@ -7,6 +7,7 @@ import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { DocumentTypeRepository } from './document-type.repository';
 import { CreateDocumentTypeDto } from './dto/create-document-type.dto';
 import { UpdateDocumentTypeDto } from './dto/update-document-type.dto';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
 
 @Injectable()
 export class DocumentTypeService {
@@ -14,8 +15,8 @@ export class DocumentTypeService {
     private readonly documentTypeRepository: DocumentTypeRepository,
   ) {}
 
-  async getDocumentTypeStatistic() {
-    return await this.documentTypeRepository.getStatistic();
+  async getDocumentTypeStatistic(query: DocumentStatisticQueryDto) {
+    return await this.documentTypeRepository.getStatistic(query);
   }
 
   async getAllDocumentTypes(query: PaginationQueryDto) {

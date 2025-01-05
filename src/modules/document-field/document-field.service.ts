@@ -7,6 +7,7 @@ import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { DocumentFieldRepository } from './document-field.repository';
 import { CreateDocumentFieldDto } from './dto/create-document-field.dto';
 import { UpdateDocumentFieldDto } from './dto/update-document-field.dto';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
 
 @Injectable()
 export class DocumentFieldService {
@@ -14,8 +15,8 @@ export class DocumentFieldService {
     private readonly documentFieldRepository: DocumentFieldRepository,
   ) {}
 
-  async getDocumentFieldStatistic() {
-    return await this.documentFieldRepository.getStatistic();
+  async getDocumentFieldStatistic(query: DocumentStatisticQueryDto) {
+    return await this.documentFieldRepository.getStatistic(query);
   }
 
   async getAllDocumentFields(query: PaginationQueryDto) {

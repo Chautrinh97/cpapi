@@ -165,7 +165,7 @@ export class DocumentService {
     };
   }
 
-  async createDocument(dto: CreateDocumentDto) {
+  async createDocument(user, dto: CreateDocumentDto) {
     if (dto.documentTypeId) {
       const existedDocumentType =
         await this.documentTypeService.getDocumentTypeById(dto.documentTypeId);
@@ -198,9 +198,9 @@ export class DocumentService {
       ...dto,
       fileUrl: fileUrl,
     });
+    document.user = user;
     if (dto.isSync) {
       console.log('ADD WITH SYNC');
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       document.syncStatus = SyncStatus.PENDING_SYNC;
       document.isLocked = true;
       await this.documentRepository.save(document);
@@ -260,7 +260,6 @@ export class DocumentService {
     if (dto.key)
       newFileUrl = `https://${this.configService.get<string>('DO_SPACE_BUCKET')}.${this.configService.get<string>('DO_SPACE_ENDPOINT')}/${dto.key}`;
     console.log('new file url:', newFileUrl);
-    console.log(dto.key);
     if (dto.validityStatus) {
       dto.invalidDate = null;
       if (
@@ -274,24 +273,34 @@ export class DocumentService {
           */
           //unload hay xóa file cũ
           await this.unloadDocument(document.key);
+          const oldKey = document.key;
+
           //Cập nhật document với file url mới
           document.fileUrl = newFileUrl;
-        }
-        /* 
+
+          //Trong trường hợp có dto.key, key mới sẽ được gắn.
+          Object.assign(document, dto);
+
+          await this.documentRepository.save(document);
+          await this.documentConsumer.add('remove-resync-document', {
+            id: document.id,
+            oldKey: oldKey,
+          });
+        } else {
+          /* 
           Trường hợp KHÔNG file mới, đang đồng bộ, còn hiệu lực -> resync
-        */
-        //Trong trường hợp có dto.key, key mới sẽ được gắn.
-        Object.assign(document, dto);
-        await this.documentRepository.save(document);
-        //Thực hiện gọi resync document trong job queue
-        await this.documentConsumer.add('resync-document', {
-          id: document.id,
-        });
+          */
+          Object.assign(document, dto);
+          await this.documentRepository.save(document);
+          await this.documentConsumer.add('resync-document', {
+            id: document.id,
+          });
+        }
         return { message: 'UPDATING_DOCUMENT' };
       } else {
         if (dto.key) {
           /*
-          Trường hợp có file mới, đang KHÔNG đồng bộ, còn hiệu lực -> unload file cũ.
+          Trường hợp có file mới, đang KHÔNG đồng bộ, còn hiệu lực -> xóa file cũ.
           */
           await this.unloadDocument(document.key);
           document.fileUrl = newFileUrl;
@@ -319,7 +328,7 @@ export class DocumentService {
         await this.documentRepository.save(document);
         await axios.post(
           `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
-          JSON.stringify({ doc_id: document.docIndexId }),
+          JSON.stringify({ doc_id: document.docIndexId, key: document.key }),
           {
             headers: {
               'Content-Type': 'application/json',
@@ -343,8 +352,8 @@ export class DocumentService {
     }
   }
 
-  async getAllDocument(query: DocumentPaginationQueryDto) {
-    return await this.documentRepository.getAll(query);
+  async getAllDocument(user, query: DocumentPaginationQueryDto) {
+    return await this.documentRepository.getAll(user, query);
   }
 
   async getDocumentById(id: number) {
@@ -374,7 +383,7 @@ export class DocumentService {
     ) {
       await axios.post(
         `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
-        JSON.stringify({ doc_id: document.docIndexId }),
+        JSON.stringify({ doc_id: document.docIndexId, key: document.key }),
         {
           headers: {
             'Content-Type': 'application/json',
@@ -425,6 +434,25 @@ export class DocumentService {
     return { message: 'Please wait to synchronize document' };
   }
 
+  async resyncDocument(id: number) {
+    const document = await this.documentRepository.findOne({
+      where: { id: id },
+    });
+    if (!document) throw new NotFoundException('Document is not found');
+    if (!document.validityStatus)
+      throw new ForbiddenException('INVALID_DOCUMENT');
+    if (document.isLocked) throw new ConflictException('IN_PROGRESS_DOCUMENT');
+    console.log('Access block to RE-SYNC document with id: ', id);
+    document.syncStatus = SyncStatus.PENDING_SYNC;
+    document.isLocked = true;
+    await this.documentRepository.save(document);
+
+    await this.documentConsumer.add('resync-document', {
+      id: id,
+    });
+    return { message: 'Please wait to re-synchronize document' };
+  }
+
   async unsyncDocument(id: number) {
     const document = await this.documentRepository.findOne({
       where: { id: id },
@@ -438,12 +466,18 @@ export class DocumentService {
     document.syncStatus = SyncStatus.NOT_SYNC;
     await this.documentRepository.save(document);
 
-    await this.documentConsumer.add('unsync-document', {
-      id: id,
-      docIndexId: document.docIndexId,
-    });
-
-    return { message: 'Please wait to unsync document.' };
+    if (document.syncStatus !== SyncStatus.NOT_SYNC) {
+      await axios.post(
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
+        JSON.stringify({ doc_id: document.docIndexId, key: document.key }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      return { message: 'Unsync successfully.' };
+    } else throw new BadRequestException('Document currently not sync');
   }
 
   /*   async updateDocumentSyncStatus(id: number, syncStatus: SyncStatus) {

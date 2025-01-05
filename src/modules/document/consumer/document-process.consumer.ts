@@ -28,10 +28,10 @@ export class DocumentProcessConsumer
       case 'sync-document':
         await this.syncDocument(job.data);
         break;
-      case 'unsync-document':
-        await this.unsyncDocument(job.data);
-        break;
       case 'resync-document':
+        await this.resyncDocument(job.data);
+        break;
+      case 'remove-resync-document':
         await this.removeAndResyncDocument(job.data);
         break;
     }
@@ -114,12 +114,11 @@ export class DocumentProcessConsumer
         const docIndexId = response.data.doc_id;
         document.syncStatus = SyncStatus.SYNC;
         document.docIndexId = docIndexId;
-        document.isLocked = false;
       } else {
         console.log('SYNC DOCUMENT FAILED');
-        document.isLocked = false;
         document.syncStatus = SyncStatus.NOT_SYNC;
       }
+      document.isLocked = false;
       await this.documentRepository.save(document);
     } catch {
       console.log('PROBLEM IN POST REQUEST SYNC DOCUMENT -> FAILED');
@@ -129,46 +128,60 @@ export class DocumentProcessConsumer
     }
   }
 
-  async unsyncDocument(data) {
-    const { id, docIndexId } = data;
+  private async resyncDocument(data) {
+    console.log('ACCESS SENDING RESYNC REQUEST');
     const document = await this.documentRepository.findOne({
-      where: { id: id },
+      where: { id: data.id },
+      relations: ['issuingBody', 'documentType', 'documentField'],
     });
     try {
+      const documentMetadata = this.getDocumentMetadata(document);
+      const requestData = { doc_id: document.docIndexId, ...documentMetadata };
       const response = await axios.post(
-        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
-        JSON.stringify({ doc_id: docIndexId }),
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/resync`,
+        JSON.stringify(requestData),
         {
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
         },
       );
 
-      if (response.status !== HttpStatus.OK) {
+      if (response.status === HttpStatus.OK) {
+        console.log('RESYNC DOCUMENT SUCCESSFULLY');
+        const docIndexId = response.data.doc_id;
         document.syncStatus = SyncStatus.SYNC;
+        document.docIndexId = docIndexId;
       } else {
-        document.docIndexId = '';
+        console.log('RESYNC DOCUMENT FAILED');
+        document.syncStatus = SyncStatus.FAILED_RESYNC;
       }
       document.isLocked = false;
       await this.documentRepository.save(document);
     } catch {
-      document.syncStatus = SyncStatus.SYNC;
+      console.log('PROBLEM IN POST REQUEST RESYNC DOCUMENT -> FAILED');
+      document.syncStatus = SyncStatus.FAILED_RESYNC;
       document.isLocked = false;
       await this.documentRepository.save(document);
     }
   }
 
   private async removeAndResyncDocument(data) {
-    const { id } = data;
+    const { id, oldKey } = data;
     //Lúc này document đã lưu key và file url mới.
     const document = await this.documentRepository.findOne({
       where: { id: id },
       relations: ['issuingBody', 'documentType', 'documentField'],
     });
     const documentMetadata = this.getDocumentMetadata(document);
-    const requestData = { doc_id: document.docIndexId, ...documentMetadata };
+    const requestData = {
+      doc_id: document.docIndexId,
+      old_key: oldKey,
+      ...documentMetadata,
+    };
     try {
       const response = await axios.post(
-        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/remove-and-sync`,
+        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/remove-and-resync`,
         JSON.stringify(requestData),
         {
           headers: { 'Content-Type': 'application/json' },
@@ -213,6 +226,7 @@ export class DocumentProcessConsumer
       invalidDate: document.invalidDate
         ? document.invalidDate.toDateString()
         : '',
+      key: document.key,
       fileUrl: document.fileUrl,
     };
   }

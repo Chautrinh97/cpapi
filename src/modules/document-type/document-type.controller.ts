@@ -39,14 +39,14 @@ export class DocumentTypeController {
 
   @Post()
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async create(@Body() createDocumentTypeDto: CreateDocumentTypeDto) {
     return this.documentTypeService.createDocumentType(createDocumentTypeDto);
   }
 
   @Put(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async update(
     @Param('id') id: number,
     @Body() updateDocumentTypeDto: UpdateDocumentTypeDto,
@@ -59,7 +59,7 @@ export class DocumentTypeController {
 
   @Delete(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async delete(@Param('id') id: number) {
     return this.documentTypeService.deleteDocumentType(id);
   }

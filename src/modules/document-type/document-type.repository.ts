@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { Repository, DataSource, ILike } from 'typeorm';
 import { DocumentType } from './schemas/document-type.schema';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
+import { SyncStatus } from '../document/schemas/document.schema';
 
 @Injectable()
 export class DocumentTypeRepository extends Repository<DocumentType> {
@@ -9,9 +11,24 @@ export class DocumentTypeRepository extends Repository<DocumentType> {
     super(DocumentType, dataSource.createEntityManager());
   }
 
-  async getStatistic(): Promise<{ documentType: string; count: number }[]> {
+  async getStatistic(
+    query: DocumentStatisticQueryDto,
+  ): Promise<{ documentType: string; count: number }[]> {
     return await this.createQueryBuilder('documentType')
-      .leftJoin('documentType.documents', 'document')
+      .leftJoin(
+        'documentType.documents',
+        'document',
+        `
+      (document.isRegulatory = :isRegulatory OR :isRegulatory IS NULL)
+      AND (document.validityStatus = :validityStatus OR :validityStatus IS NULL)
+      AND (document.syncStatus = :syncStatus OR :syncStatus IS NULL)
+      `,
+        {
+          isRegulatory: query.isRegulatory ?? null,
+          validityStatus: query.validityStatus ?? null,
+          syncStatus: query.syncStatus ? SyncStatus.SYNC : null,
+        },
+      )
       .select('documentType.name', 'documentType')
       .addSelect('COALESCE(COUNT(document.id), 0)', 'count')
       .groupBy('documentType.name')

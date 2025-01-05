@@ -39,14 +39,14 @@ export class IssuingBodyController {
 
   @Post()
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async create(@Body() createIssuingBodyDto: CreateIssuingBodyDto) {
     return this.issuingBodyService.createIssuingBody(createIssuingBodyDto);
   }
 
   @Put(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async update(
     @Param('id') id: number,
     @Body() updateIssuingBodyDto: UpdateIssuingBodyDto,
@@ -56,7 +56,7 @@ export class IssuingBodyController {
 
   @Delete(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async delete(@Param('id') id: number) {
     return this.issuingBodyService.deleteIssuingBody(id);
   }

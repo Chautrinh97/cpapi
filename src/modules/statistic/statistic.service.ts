@@ -18,11 +18,11 @@ export class StatisticService {
 
   async getStatistic(query: DocumentStatisticQueryDto) {
     const documentTypes =
-      await this.documentTypeService.getDocumentTypeStatistic();
+      await this.documentTypeService.getDocumentTypeStatistic(query);
     const documentFields =
-      await this.documentFieldService.getDocumentFieldStatistic();
+      await this.documentFieldService.getDocumentFieldStatistic(query);
     const issuingBodies =
-      await this.issuingBodyService.getIssuingBodyStatistic();
+      await this.issuingBodyService.getIssuingBodyStatistic(query);
 
     const totalDocumentTypes = documentTypes.length;
     const totalDocumentFields = documentFields.length;

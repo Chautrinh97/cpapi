@@ -35,7 +35,7 @@ export class ConversationService {
 
   async createConversation(user) {
     const lastConversation = await this.conversationRepository.findOne({
-      where: { user: user.id },
+      where: { user: { id: user.id } },
       order: { createdAt: 'DESC' },
       relations: ['messages'],
     });

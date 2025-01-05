@@ -2,6 +2,7 @@ import { BaseEntity } from 'src/base/base.schema';
 import { DocumentField } from 'src/modules/document-field/schemas/document-field.schema';
 import { DocumentType } from 'src/modules/document-type/schemas/document-type.schema';
 import { IssuingBody } from 'src/modules/issuing-body/schemas/issuing-body.schema';
+import { User } from 'src/modules/user/schemas/user.schema';
 import {
   Column,
   Entity,
@@ -94,4 +95,10 @@ export class Document extends BaseEntity {
     default: false,
   })
   isLocked: boolean;
+
+  @ManyToOne(() => User, (user) => user.documents, {
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'user_id' })
+  user: Relation<User>;
 }

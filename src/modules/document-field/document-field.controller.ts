@@ -39,7 +39,7 @@ export class DocumentFieldController {
 
   @Post()
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async create(@Body() createDocumentFieldDto: CreateDocumentFieldDto) {
     return this.documentFieldService.createDocumentField(
       createDocumentFieldDto,
@@ -48,7 +48,7 @@ export class DocumentFieldController {
 
   @Put(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async update(
     @Param('id') id: number,
     @Body() updateDocumentFieldDto: UpdateDocumentFieldDto,
@@ -61,7 +61,7 @@ export class DocumentFieldController {
 
   @Delete(':id')
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents_properties')
+  @Permissions('manage_document_properties')
   async delete(@Param('id') id: number) {
     return this.documentFieldService.deleteDocumentField(id);
   }

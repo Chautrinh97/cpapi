@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { Repository, DataSource, ILike } from 'typeorm';
 import { IssuingBody } from './schemas/issuing-body.schema';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
+import { SyncStatus } from '../document/schemas/document.schema';
 
 @Injectable()
 export class IssuingBodyRepository extends Repository<IssuingBody> {
@@ -9,9 +11,24 @@ export class IssuingBodyRepository extends Repository<IssuingBody> {
     super(IssuingBody, dataSource.createEntityManager());
   }
 
-  async getStatistic(): Promise<{ issuingBody: string; count: number }[]> {
+  async getStatistic(
+    query: DocumentStatisticQueryDto,
+  ): Promise<{ issuingBody: string; count: number }[]> {
     return await this.createQueryBuilder('issuingBody')
-      .leftJoin('issuingBody.documents', 'document')
+      .leftJoin(
+        'issuingBody.documents',
+        'document',
+        `
+              (document.isRegulatory = :isRegulatory OR :isRegulatory IS NULL)
+              AND (document.validityStatus = :validityStatus OR :validityStatus IS NULL)
+              AND (document.syncStatus = :syncStatus OR :syncStatus IS NULL)
+              `,
+        {
+          isRegulatory: query.isRegulatory ?? null,
+          validityStatus: query.validityStatus ?? null,
+          syncStatus: query.syncStatus ? SyncStatus.SYNC : null,
+        },
+      )
       .select('issuingBody.name', 'issuingBody')
       .addSelect('COALESCE(COUNT(document.id), 0)', 'count')
       .groupBy('issuingBody.name')

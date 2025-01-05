@@ -121,7 +121,8 @@ export class UserService implements OnModuleInit {
     }
 
     if (userForUpdate.isVerified) {
-      throw new ForbiddenException('VERIFIED_USER');
+      if (dto.email && dto.email !== userForUpdate.email)
+        throw new ForbiddenException('VERIFIED_USER');
     }
 
     if (

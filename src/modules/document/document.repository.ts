@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, ILike, Not, Repository } from 'typeorm';
+import { DataSource, ILike, Repository } from 'typeorm';
 import { Document, SyncStatus } from './schemas/document.schema';
 import { DocumentPaginationQueryDto } from './dto/document-pagination-query.dto';
 import { DocumentStatisticQueryDto } from './dto/document-statistic-query.dto';
@@ -10,7 +10,7 @@ export class DocumentRepository extends Repository<Document> {
     super(Document, dataSource.createEntityManager());
   }
 
-  async getAll(query: DocumentPaginationQueryDto) {
+  async getAll(user, query: DocumentPaginationQueryDto) {
     const {
       documentField,
       documentType,
@@ -18,6 +18,7 @@ export class DocumentRepository extends Repository<Document> {
       isRegulatory,
       isValid,
       isSync,
+      createdBy,
       searchKey,
       pageNumber,
       pageLimit,
@@ -56,10 +57,16 @@ export class DocumentRepository extends Repository<Document> {
 
     if (isSync !== undefined && isSync === true) {
       whereConditions.push({ syncStatus: SyncStatus.SYNC });
+      whereConditions.push({ syncStatus: SyncStatus.FAILED_RESYNC });
     }
 
     if (isSync !== undefined && isSync === false) {
-      whereConditions.push({ syncStatus: Not(SyncStatus.SYNC) });
+      whereConditions.push({ syncStatus: SyncStatus.NOT_SYNC });
+      whereConditions.push({ syncStatus: SyncStatus.PENDING_SYNC });
+    }
+
+    if (createdBy !== undefined && createdBy === true) {
+      whereConditions.push({ user: { id: user.id } });
     }
 
     const [field, order] = orderBy.split(' ');
@@ -67,13 +74,28 @@ export class DocumentRepository extends Repository<Document> {
     const skip = (pageNumber - 1) * pageLimit;
     const take = isExport ? undefined : pageLimit;
 
-    const [documents, total] = await this.findAndCount({
+    /* const [documents, total] = await this.findAndCount({
       where: whereConditions,
-      relations: ['documentType', 'documentField', 'issuingBody'],
+      relations: ['documentType', 'documentField', 'issuingBody', 'user'],
       order: { [field]: order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC' },
       skip,
       take,
-    });
+    }); */
+
+    const [documents, total] = await this.createQueryBuilder('document')
+      .leftJoinAndSelect('document.documentType', 'documentType')
+      .leftJoinAndSelect('document.documentField', 'documentField')
+      .leftJoinAndSelect('document.issuingBody', 'issuingBody')
+      .leftJoin('document.user', 'user')
+      .addSelect(['user.id', 'user.fullName'])
+      .where(whereConditions)
+      .orderBy(
+        `document.${field}`,
+        order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      )
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
 
     return {
       data: documents,

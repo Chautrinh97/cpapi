@@ -7,6 +7,7 @@ import { CreateIssuingBodyDto } from './dto/create-issuing-body.dto';
 import { UpdateIssuingBodyDto } from './dto/update-issuing-body.dto';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { IssuingBodyRepository } from './issuing-body.repository';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
 
 @Injectable()
 export class IssuingBodyService {
@@ -16,8 +17,8 @@ export class IssuingBodyService {
     return await this.issuingBodyRepository.getAll(query);
   }
 
-  async getIssuingBodyStatistic() {
-    return await this.issuingBodyRepository.getStatistic();
+  async getIssuingBodyStatistic(query: DocumentStatisticQueryDto) {
+    return await this.issuingBodyRepository.getStatistic(query);
   }
 
   async getIssuingBodyById(id: number) {

@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { Repository, DataSource, ILike } from 'typeorm';
 import { DocumentField } from './schemas/document-field.schema';
+import { DocumentStatisticQueryDto } from '../document/dto/document-statistic-query.dto';
+import { SyncStatus } from '../document/schemas/document.schema';
 
 @Injectable()
 export class DocumentFieldRepository extends Repository<DocumentField> {
@@ -9,9 +11,24 @@ export class DocumentFieldRepository extends Repository<DocumentField> {
     super(DocumentField, dataSource.createEntityManager());
   }
 
-  async getStatistic(): Promise<{ documentField: string; count: number }[]> {
+  async getStatistic(
+    query: DocumentStatisticQueryDto,
+  ): Promise<{ documentField: string; count: number }[]> {
     return await this.createQueryBuilder('documentField')
-      .leftJoin('documentField.documents', 'document')
+      .leftJoin(
+        'documentField.documents',
+        'document',
+        `
+          (document.isRegulatory = :isRegulatory OR :isRegulatory IS NULL)
+          AND (document.validityStatus = :validityStatus OR :validityStatus IS NULL)
+          AND (document.syncStatus = :syncStatus OR :syncStatus IS NULL)
+          `,
+        {
+          isRegulatory: query.isRegulatory ?? null,
+          validityStatus: query.validityStatus ?? null,
+          syncStatus: query.syncStatus ? SyncStatus.SYNC : null,
+        },
+      )
       .select('documentField.name', 'documentField')
       .addSelect('COALESCE(COUNT(document.id), 0)', 'count')
       .groupBy('documentField.name')

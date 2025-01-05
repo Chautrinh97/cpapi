@@ -10,6 +10,7 @@ import { IsEmail, Length } from 'class-validator';
 import { BaseEntity } from 'src/base/base.schema';
 import { AuthorityGroup } from 'src/modules/permission/schemas/authority-group.schema';
 import { Conversation } from 'src/modules/conversation/schemas/conversation.schema';
+import { Document } from 'src/modules/document/schemas/document.schema';
 
 export enum UserRole {
   SUPERAMIN = 'superadmin',
@@ -60,4 +61,7 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Conversation, (conversation) => conversation.user)
   conversations: Conversation[];
+
+  @OneToMany(() => Document, (document) => document.user)
+  documents: Document[];
 }

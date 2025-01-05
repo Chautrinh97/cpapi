@@ -6,10 +6,10 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  // Patch,
   Post,
   Put,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -36,7 +36,7 @@ export class DocumentController {
   @Post('/upload')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.OK)
   async upload(@UploadedFile() file: Express.Multer.File) {
@@ -48,7 +48,7 @@ export class DocumentController {
   @Post('/unload/:key')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.OK)
   async unload(@Param('key') key: string) {
@@ -67,7 +67,7 @@ export class DocumentController {
   @Put(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @HttpCode(HttpStatus.OK)
   async update(
     @Param('id') id: number,
@@ -79,7 +79,7 @@ export class DocumentController {
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @HttpCode(HttpStatus.OK)
   async delete(@Param('id') id: number) {
     return await this.documentService.deleteDocument(id);
@@ -92,14 +92,25 @@ export class DocumentController {
   }
 
   @Get()
-  async getAll(@Query() query: DocumentPaginationQueryDto) {
-    return await this.documentService.getAllDocument(query);
+  @UseGuards(AuthGuard('jwt'))
+  @HttpCode(HttpStatus.OK)
+  async getAll(@Req() request, @Query() query: DocumentPaginationQueryDto) {
+    return await this.documentService.getAllDocument(request.user, query);
+  }
+
+  @Post('/resync/:id')
+  @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
+  @Roles('superadmin', 'officer')
+  @Permissions('manage_own_documents', 'manage_all_documents')
+  @HttpCode(HttpStatus.OK)
+  async resyncDocument(@Param('id') id: number) {
+    return await this.documentService.resyncDocument(id);
   }
 
   @Post('/sync/:id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @HttpCode(HttpStatus.OK)
   async syncDocument(@Param('id') id: number) {
     return await this.documentService.syncDocument(id);
@@ -108,7 +119,7 @@ export class DocumentController {
   @Post('/unsync/:id')
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @HttpCode(HttpStatus.OK)
   async unsyncDocument(@Param('id') id: number) {
     return await this.documentService.unsyncDocument(id);
@@ -117,21 +128,12 @@ export class DocumentController {
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard, PermissionGuard)
   @Roles('superadmin', 'officer')
-  @Permissions('manage_documents', 'manage_documents_properties')
+  @Permissions('manage_own_documents', 'manage_all_documents')
   @HttpCode(HttpStatus.OK)
-  async create(@Body() createDocumentDto: CreateDocumentDto) {
-    return await this.documentService.createDocument(createDocumentDto);
-  }
-
-  /*   @Patch('/update-sync-status/:id')
-  @HttpCode(HttpStatus.OK)
-  async updateSyncStatus(
-    @Param('id') id: number,
-    @Body() body: { syncStatus: SyncStatus },
-  ) {
-    return await this.documentService.updateDocumentSyncStatus(
-      id,
-      body.syncStatus,
+  async create(@Req() request, @Body() createDocumentDto: CreateDocumentDto) {
+    return await this.documentService.createDocument(
+      request.user,
+      createDocumentDto,
     );
-  } */
+  }
 }
