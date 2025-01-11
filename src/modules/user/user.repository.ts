@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { User } from './schemas/user.schema';
-import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { Repository, DataSource, ILike, Not } from 'typeorm';
+import { UserQueryDto } from './dto/user-query.dto';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
@@ -9,8 +9,8 @@ export class UserRepository extends Repository<User> {
     super(User, dataSource.createEntityManager());
   }
 
-  async getAll(query: PaginationQueryDto, userRequestId?: number) {
-    const { searchKey, pageNumber, pageLimit, isExport, orderBy } = query;
+  async getAll(query: UserQueryDto, userRequestId?: number) {
+    const { searchKey, pageNumber, pageLimit, isExport, orderBy, role } = query;
     let whereConditions;
     if (userRequestId) {
       whereConditions = searchKey
@@ -34,6 +34,13 @@ export class UserRepository extends Repository<User> {
             { email: ILike(`%${searchKey}%`), role: Not('superadmin') },
           ]
         : [{ role: Not('superadmin') }];
+    }
+
+    if (role) {
+      whereConditions = whereConditions.map((condition) => ({
+        ...condition,
+        role: role,
+      }));
     }
 
     const [field, order] = orderBy.split(' ');

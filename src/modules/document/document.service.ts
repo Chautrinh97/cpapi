@@ -395,7 +395,6 @@ export class DocumentService {
   }
 
   private validateFile(file: Express.Multer.File) {
-    console.log('File size:', file.size);
     if (!this.ALLOW_MIME_TYPE.includes(file.mimetype)) {
       throw new BadRequestException(
         'Invalid file type. Only PDF and Word documents are allowed.',

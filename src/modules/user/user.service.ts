@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { UserRepository } from './user.repository';
 import { compare, hash } from 'src/utils/bcrypt';
-import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { PermissionService } from '../permission/permission.service';
@@ -18,6 +17,7 @@ import { PermissionService } from '../permission/permission.service';
 import { UpdateInfoDto } from './dto/update-info.dto';
 import { UserRole } from './schemas/user.schema';
 import { Permission } from '../permission/schemas/permission.schema';
+import { UserQueryDto } from './dto/user-query.dto';
 @Injectable()
 export class UserService implements OnModuleInit {
   // private authService: AuthService;
@@ -64,7 +64,7 @@ export class UserService implements OnModuleInit {
     return await this.userRepository.save(user);
   }
 
-  async getAllUser(query: PaginationQueryDto, userRequest: any) {
+  async getAllUser(query: UserQueryDto, userRequest: any) {
     if (userRequest.role === UserRole.SUPERAMIN)
       return await this.userRepository.getAll(query);
     return await this.userRepository.getAll(query, userRequest.id);

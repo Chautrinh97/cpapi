@@ -20,11 +20,11 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/decorators/roles.decorator';
 import { RolesGuard } from 'src/guards/roles.guard';
 import { AuthGuard } from '@nestjs/passport';
-import { PaginationQueryDto } from 'src/parameter/pagination-query.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 import { UpdateInfoDto } from './dto/update-info.dto';
 import { PermissionGuard } from 'src/guards/permission.guard';
 import { Permissions } from 'src/decorators/permission.decorator';
+import { UserQueryDto } from './dto/user-query.dto';
 
 @Controller('user')
 @ApiTags('users')
@@ -46,7 +46,7 @@ export class UserController {
   @Roles('superadmin', 'officer')
   @Permissions('manage_users')
   @HttpCode(HttpStatus.OK)
-  async getAll(@Query() query: PaginationQueryDto, @Req() request) {
+  async getAll(@Query() query: UserQueryDto, @Req() request) {
     return await this.userService.getAllUser(query, request.user);
   }
 
