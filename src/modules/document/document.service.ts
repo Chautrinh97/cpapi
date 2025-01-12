@@ -461,22 +461,22 @@ export class DocumentService {
       throw new ConflictException('Some progress is running');
     if (document.syncStatus === SyncStatus.NOT_SYNC)
       throw new ForbiddenException('Document aldready unsync before');
-    document.isLocked = true;
+
+    await axios.post(
+      `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
+      JSON.stringify({ doc_id: document.docIndexId, key: document.key }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+
     document.syncStatus = SyncStatus.NOT_SYNC;
+    document.docIndexId = null;
     await this.documentRepository.save(document);
 
-    if (document.syncStatus !== SyncStatus.NOT_SYNC) {
-      await axios.post(
-        `${this.configService.get<string>('CHATBOT_ENDPOINT')}/document/unsync`,
-        JSON.stringify({ doc_id: document.docIndexId, key: document.key }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-      return { message: 'Unsync successfully.' };
-    } else throw new BadRequestException('Document currently not sync');
+    return { message: 'Unsync successfully.' };
   }
 
   /*   async updateDocumentSyncStatus(id: number, syncStatus: SyncStatus) {
