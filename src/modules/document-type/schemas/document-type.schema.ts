@@ -7,6 +7,9 @@ export class DocumentType extends BaseEntity {
   @Column({ length: 255 })
   name: string;
 
+  @Column({ length: 255 })
+  acronym: string;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

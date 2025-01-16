@@ -85,6 +85,12 @@ export class DocumentController {
     return await this.documentService.deleteDocument(id);
   }
 
+  @Get('/year')
+  @HttpCode(HttpStatus.OK)
+  async getIssuanceYears() {
+    return await this.documentService.getIssuanceYears();
+  }
+
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async getById(@Param('id') id: number) {

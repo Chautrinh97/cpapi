@@ -7,6 +7,9 @@ export class IssuingBody extends BaseEntity {
   @Column({ length: 1000 })
   name: string;
 
+  @Column({ length: 255 })
+  acronym: string;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

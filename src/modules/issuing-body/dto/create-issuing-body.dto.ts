@@ -7,6 +7,11 @@ export class CreateIssuingBodyDto {
   name: string;
 
   @ApiProperty()
+  @IsString()
+  @IsOptional()
+  acronym: string;
+
+  @ApiProperty()
   @IsOptional()
   @IsString()
   description: string;

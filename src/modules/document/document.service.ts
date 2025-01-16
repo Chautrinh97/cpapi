@@ -356,6 +356,10 @@ export class DocumentService {
     return await this.documentRepository.getAll(user, query);
   }
 
+  async getIssuanceYears() {
+    return await this.documentRepository.getIssuanceDistinctYears();
+  }
+
   async getDocumentById(id: number) {
     const document = await this.documentRepository.findOne({
       where: { id: id },

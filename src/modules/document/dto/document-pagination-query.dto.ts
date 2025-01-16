@@ -49,4 +49,10 @@ export class DocumentPaginationQueryDto extends PaginationQueryDto {
     value === undefined ? undefined : value === 'true',
   )
   createdBy: boolean;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  year: number;
 }

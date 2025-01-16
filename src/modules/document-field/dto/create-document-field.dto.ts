@@ -7,6 +7,11 @@ export class CreateDocumentFieldDto {
   name: string;
 
   @ApiProperty()
+  @IsString()
+  @IsOptional()
+  acronym: string;
+
+  @ApiProperty()
   @IsOptional()
   @IsString()
   description: string;
