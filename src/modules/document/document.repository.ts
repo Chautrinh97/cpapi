@@ -44,8 +44,8 @@ export class DocumentRepository extends Repository<Document> {
     // Điều kiện tìm kiếm với searchKey
     if (searchKey) {
       qb.andWhere(
-        `(document.title ILIKE :searchKey OR document.description ILIKE :searchKey OR document.referenceNumber ILIKE :searchKey)`,
-        { searchKey: `%${searchKey}%` },
+        `(LOWER(document.title) LIKE :searchKey OR LOWER(document.description) LIKE :searchKey OR LOWER(document.referenceNumber) LIKE :searchKey)`,
+        { searchKey: `%${searchKey.toLowerCase()}%` },
       );
     }
 
