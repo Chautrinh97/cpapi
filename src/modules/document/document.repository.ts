@@ -138,9 +138,15 @@ export class DocumentRepository extends Repository<Document> {
     }
 
     if (syncStatus !== undefined) {
-      qb.andWhere('document.syncStatus = :status', {
-        status: SyncStatus.SYNC,
-      });
+      if (syncStatus) {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.SYNC, SyncStatus.FAILED_RESYNC],
+        });
+      } else {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.NOT_SYNC, SyncStatus.PENDING_SYNC],
+        });
+      }
     }
 
     return await qb.getCount();
@@ -164,9 +170,15 @@ export class DocumentRepository extends Repository<Document> {
     }
 
     if (syncStatus !== undefined) {
-      qb.andWhere('document.syncStatus = :status', {
-        status: SyncStatus.SYNC,
-      });
+      if (syncStatus) {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.SYNC, SyncStatus.FAILED_RESYNC],
+        });
+      } else {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.NOT_SYNC, SyncStatus.PENDING_SYNC],
+        });
+      }
     }
 
     return await qb.getCount();
@@ -190,9 +202,15 @@ export class DocumentRepository extends Repository<Document> {
     }
 
     if (syncStatus !== undefined) {
-      qb.andWhere('document.syncStatus = :status', {
-        status: SyncStatus.SYNC,
-      });
+      if (syncStatus) {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.SYNC, SyncStatus.FAILED_RESYNC],
+        });
+      } else {
+        qb.andWhere('document.syncStatus IN (:...statuses)', {
+          statuses: [SyncStatus.NOT_SYNC, SyncStatus.PENDING_SYNC],
+        });
+      }
     }
     return await qb.getCount();
   }

@@ -21,12 +21,18 @@ export class IssuingBodyRepository extends Repository<IssuingBody> {
         `
               (document.isRegulatory = :isRegulatory OR :isRegulatory IS NULL)
               AND (document.validityStatus = :validityStatus OR :validityStatus IS NULL)
-              AND (document.syncStatus = :syncStatus OR :syncStatus IS NULL)
-              `,
+              AND (
+        (:syncStatus IS NULL) OR
+        (:syncStatus = true AND document.syncStatus IN (:...syncStatusesTrue)) OR
+        (:syncStatus = false AND document.syncStatus IN (:...syncStatusesFalse))
+      )
+      `,
         {
           isRegulatory: query.isRegulatory ?? null,
           validityStatus: query.validityStatus ?? null,
-          syncStatus: query.syncStatus ? SyncStatus.SYNC : null,
+          syncStatus: query.syncStatus ?? null,
+          syncStatusesTrue: [SyncStatus.SYNC, SyncStatus.FAILED_RESYNC],
+          syncStatusesFalse: [SyncStatus.PENDING_SYNC, SyncStatus.NOT_SYNC],
         },
       )
       .select('issuingBody.name', 'issuingBody')
